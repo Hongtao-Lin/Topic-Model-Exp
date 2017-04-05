@@ -12,8 +12,8 @@ NUM_TOP_WORDS = 20
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
 ROOT_DIR = "/home/slhome/htl11/workspace/topic-model/btm/"
-MODEL_STR = "output-post-k100-fstop"
-SRC_NAME = "src2/btm"
+MODEL_STR = "output-all-k1000-fstop"
+SRC_NAME = "src/btm"
 
 logging.basicConfig(level=logging.DEBUG)
 

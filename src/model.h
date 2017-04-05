@@ -51,7 +51,7 @@ public:
   }
   
   // run estimate procedures
-  void run(string docs_pt, string res_dir);
+  void run(string docs_pt, string res_dir, int P);
   
 private:
   // intialize memeber varibles and biterms

@@ -40,7 +40,7 @@ def read_line(l, text_mode):
     else:
         return l.split("=>")[1:]
 
-def build_vocab(pt, text_mode, filter_pt=""):
+def build_vocab(pt, text_mode, filter_stop=False, filter_pt=""):
     print "index file: %s" % pt
     w2cnt = {}
     w2id = {}
@@ -74,8 +74,8 @@ def build_vocab(pt, text_mode, filter_pt=""):
     for (w, cnt) in w2cnt.items():
         if cnt <= freq_thes:
             del w2id[w]
-        # elif w in stopword_cnt:
-            # del w2id[w]
+        elif filter_stop and w in stopword_cnt:
+            del w2id[w]
         # elif cnt >= freq_thes_up:
         #     print >>f_pt, w
         #     del w2id[w]
@@ -134,21 +134,23 @@ def write_doc2id(doc_pt, dwid_pt, voca_pt, text_mode, debug=False):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 5:
         print 'Usage: python %s <doc_pt> <dwid_pt> <voca_pt>' % sys.argv[0]
         print '\tdoc_pt    input docs to be indexed, each line is a doc with the format "word word ..."'
         print '\tdwid_pt   output docs after indexing, each line is a doc with the format "wordId wordId ..."'
         print '\tvoca_pt   output vocabulary file, each line is a word with the format "wordId    word"'
+        print '\tfstop   bool, whether to filter out stopwords'
         exit(1)
 
     doc_pt = sys.argv[1]
     dwid_pt = sys.argv[2]
     voca_pt = sys.argv[3]
+    filter_stop = bool(int(sys.argv[4]))
     # filter_pt = sys.argv[4]
     if os.path.isfile(voca_pt):
         w2id = load_vocab(voca_pt)
     else:
-        w2id = build_vocab(doc_pt, text_mode, filter_pt="")
+        w2id = build_vocab(doc_pt, text_mode, filter_stop=filter_stop, filter_pt="")
         save_vocab(w2id, voca_pt)
     print 'n(w)=', len(w2id)
     # filter_doc(doc_pt, w2id, text_mode)

@@ -33,7 +33,7 @@ private:
 public:
   Infer(string type, int K): type(type), K(K) {}
 
-  void run(string docs_pt, string model_dir);
+  void run(string docs_pt, string model_dir, string suffix, string infer_type);
 };
 
 #endif

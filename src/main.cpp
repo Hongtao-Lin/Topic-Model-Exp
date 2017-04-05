@@ -42,11 +42,12 @@ int main(int argc, char* argv[]) {
   int i = 1;
   if (strcmp(argv[i++], "est")==0) {
     int K = atoi(argv[i++]);                  // topic num
-	int W = atoi(argv[i++]);
+    int W = atoi(argv[i++]);
+    int P = atoi(argv[i++]);
     double alpha = atof(argv[i++]);    // hyperparameters of p(z)
     double beta = atof(argv[i++]);     // hyperparameters of p(w|z)
     int n_iter = atoi(argv[i++]);
-	int save_step = atoi(argv[i++]);
+    int save_step = atoi(argv[i++]);
     string docs_pt(argv[i++]);
     string dir(argv[i++]);
     bool has_background(false);
@@ -54,22 +55,24 @@ int main(int argc, char* argv[]) {
       has_background = true;
     }
 
-    cout << "Run BTM, K=" << K << ", W=" << W << ", alpha=" << alpha << ", beta=" << beta << ", n_iter=" << n_iter << ", save_step=" << save_step << " ====" << endl;	
+    cout << "Run BTM, K=" << K << ", W=" << W << ", alpha=" << alpha << ", beta=" << beta << ", n_iter=" << n_iter << ", save_step=" << save_step << " ====" << endl;   
     // load training data from file
-	double start = omp_get_wtime();
-	Model model(K, W, alpha, beta, n_iter, save_step, has_background);
-	model.run(docs_pt, dir);
-	double end = omp_get_wtime();
-	printf("cost %fs\n", end-start);	
+    double start = omp_get_wtime();
+    Model model(K, W, alpha, beta, n_iter, save_step, has_background);
+    model.run(docs_pt, dir, P);
+    double end = omp_get_wtime();
+    printf("cost %fs\n", end-start);    
   } else if (strcmp(argv[1], "inf")==0) {
-	string type(argv[2]);
+    string type(argv[2]);
     int K = atoi(argv[3]);                  // topic num
     string docs_pt(argv[4]);
     string dir(argv[5]);
+    string suffix(argv[6]);
+    string infer_type(argv[7]);
     cout << "Run inference:K=" << K << ", type " << type << " ====" << endl;
     Infer inf(type, K);
-    inf.run(docs_pt, dir);
+    inf.run(docs_pt, dir, suffix, infer_type);
   } else {
-	cout << "Wrong common:" << argv[0] << " " << argv[1] << endl;
+    cout << "Wrong common:" << argv[0] << " " << argv[1] << endl;
   }
 }
