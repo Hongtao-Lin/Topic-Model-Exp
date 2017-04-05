@@ -2,7 +2,7 @@
 # coding=utf-8
 # Function: translate the results from BTM
 
-import sys, os, math, time
+import sys, os, math, time, random, logging
 import codecs
 import numpy as np
 from collections import OrderedDict, namedtuple
@@ -11,9 +11,11 @@ import subprocess
 
 NUM_TOP_WORDS = 20
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
-SUFFIX = ".test.pz_d"
+# SUFFIX = ".test.pz_d"
 ROOT_DIR = "/home/slhome/htl11/workspace/topic-model/btm/"
+MODEL_STR = "output-all-k1000-fstop"
 
+logging.basicConfig(level=logging.DEBUG)
 
 class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
@@ -31,17 +33,19 @@ class Biterm(namedtuple("Biterm", "wi wj")):
 
 class BTM(object):
     def __init__(self, model_str="output-post-k100-fstop"):
-        base_dir = "%s%s/" % (ROOT_DIR, model_str)
-        self.K = int(base_dir.split("-k")[-1].split("-")[0])
-        voca_pt = base_dir + "vocab.txt"
+        self.base_dir = "%s%s/" % (ROOT_DIR, model_str)
+        self.K = int(self.base_dir.split("-k")[-1].split("-")[0])
+        voca_pt = self.base_dir + "vocab.txt"
         self.w2id = word2id(voca_pt)
+        self.V = len(self.w2id)
         self.id2w = id2word(voca_pt)
 
-        model_dir = base_dir + "model/"
-        self.pz, self.pw_z = self.load_model(model_dir)
+        self.model_dir = self.base_dir + "model/"
+        self.pz, self.pw_z = self.load_model(self.model_dir)
         self.top_words = self.get_top_topic_words(num_top_words=NUM_TOP_WORDS)
 
     def load_model(self, model_dir):
+        logging.debug("loading models from %s" % model_dir)
         pz, pw_z = [], []
         z_pt = model_dir + "k%d.pz" % self.K
         wz_pt = model_dir + "k%d.pw_z" % self.K
@@ -61,8 +65,26 @@ class BTM(object):
             topic_prob = [(i, p) for i, p in enumerate(topic_prob)]
             topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[:num_top_words]
             top_words.append(topic_prob)
-        return top_words
+        return np.array(top_words)
 
+    def filter_words(self, filter_pt):
+        """Filter topic-words according to filter vocab, i.e, stopwords,
+        Also adjust vocab mappings accordingly
+
+        Args:
+            filter_pt (str): file path for filtered words
+        """
+        filtered_topics = []
+        filter_words = codes.open(filter_pt, encoding="utf8").read().split()
+        filter_wids = [self.w2id[w] for w in filter_words if w in self.w2id]
+        self.pw_z = np.delete(self.pw_z, filter_wids, axis=1)
+        print np.sum(self.pw_z, axis=1)
+        self.pw_z /= np.sum(self.pw_z, axis=1)
+        self.V -= len(filter_wids)
+        for w, wid in zip(filter_words, filter_wids):
+            del self.w2id[wid]
+            del self.id2w[w]
+        assert self.pw_z[1] == self.V
 
     def disp_doc(self, sent):
         print "Display Doc..."
@@ -82,13 +104,22 @@ class BTM(object):
     def disp_topic(self, z, pz=0.0):
         output = " ".join(["%s:%.4f" %
                            (self.id2w[w], p) for (w, p) in self.top_words[z][:]])
-        return '%f\t\t%s' % (pz, output.encode("utf8"))
+        print '%f\t\t%s' % (pz, output.encode("utf8"))
 
-    def disp_topics(self):
+    def disp_all_topics(self):
         print "Display Topics..."
         print 'p(z)\t\tTop Words'
         for z, pz in sorted(enumerate(self.pz), lambda t: t[1], reverse=True)[:10]:
-            print disp_topics(z, pz)
+            disp_topic(z, pz)
+
+    def disp_topic_coherence(self, z=None, base_k=1000):
+        if not z:
+            z = random.randint(0, self.K)
+        pz = self.pz[z]
+        self.disp_topic(z. pz)
+        output = " ".join(["%s:%.4f"] %
+                          (self.id2w[w], p) for (w, p) in self.pw_z[z][base_k:base_k+NUM_TOP_WORDS])
+        print '%f\t\t%s' % (pz, output.encode("utf8"))
 
     def get_topic_coherence(self, did_pt, num_top_words=10):
         """get topic coherence as a ref metric, see Sec5.1.1 original paper of BTM
@@ -118,8 +149,50 @@ class BTM(object):
                     topic_coherence += math.log(tmp)
 
         topic_coherence /= len(topics)
-        print "Topic Coherence: %.3f" % topic_coherence
+        # print "Topic Coherence: %.3f" % topic_coherence
         return topic_coherence
+
+    def get_perplexity(self, did_pt):
+        """Perplexity of the test dataset.
+        The calculation is as follows:
+            prob = \sum_n,m{logsum_t{p(w|z)p(z|d)}} / \sum{n_m}
+            ppl = exp{-prob}
+
+        Args:
+            did_pt (str): file path for test document (converted to word ids)
+
+        Returns:
+            float: perplexity
+        """
+
+        total_words, total_prob = 0, 0
+        zd_pt = self.quick_infer_topics_from_file(did_pt)
+        # p_unk = 1.0 / self.V
+        for pz_d, wids in zip(open(zd_pt), open(did_pt)):
+            pz_d = map(float, pz_d.split())  # T
+            wids = map(int, wids.strip().split())   # N_m
+            for wid in wids:
+                if wid >= self.V:
+                    continue
+                p = sum([pw_z[wid] * pz_d[i] for i, (pz, pw_z) in zip(self.pz, self.pw_z)])
+                total_prob += math.log(p)
+            # print p, len(wids)
+            total_words += len(wids)
+        total_prob /= total_words
+        ppl = math.exp(-total_prob)
+
+        # print ppl
+        return ppl
+
+
+    def doc2id(self, doc_pt, did_pt=""):
+        if not did_pt:
+            did_pt = doc_pt + ".id"
+        out_f = open(did_pt, "w")
+        for line in codecs.open(doc_pt, encoding="utf8"):
+            new_line = 
+        out_f.close()
+        return did_pt
 
     # Add an additional blank class!
     def infer_topic_from_wids(self, wids):
@@ -144,26 +217,81 @@ class BTM(object):
         return pz_d
 
     def infer_topic(self, sent_list):
+        logging.debug("infering doc from input sentences")
+        t1 = time.time()
         pz_d = []
         for sent in sent_list:
             wids = [self.w2id[w] for w in sent.strip().split() if w in self.w2id]
             pz_d.append(self.infer_topic_from_wids(wids))
+        logging.debug("time spend: %.3f" % (time.time() - t1))
         return np.array(pz_d)
 
-    def infer_topics_from_file(self, did_pt):
-        pz_d = []
+    def infer_topics_from_file(self, doc_pt, is_raw=False, out_pt=""):
+        """Read and write to file the result of inference
+        
+        Args:
+            doc_pt (str): file path for document, either raw or wids
+            is_raw (bool, optional): if True, only the doc strings
+            out_pt (str, optional): file path for write
+        
+        Returns:
+            str: file path for output file
+        """
+        # pz_d = []
         # sent_list = []
+        logging.debug("infering doc from file")
+        if not out_pt:
+            out_pt = self.model_dir + "k%d.test.pz_d" % self.K
+        out_f = open(out_pt, "w")
+        t1 = time.time()
         for line in open(did_pt):
             # if len(sent_list) > 100:
                 # pz_d.extend(self.infer_topic(sent_list))
                 # sent_list = []
-            wids = [int(wid) for wid in line.strip().split()]
-            print wids[0]
-            pz_d.append(self.infer_topic_from_wids(wids))
+            line_list = line.decode("utf8").strip().split()
+            if is_raw:
+                line_list = [self.w2id[w] for w in line_list if w in self.wi2d]
+            assert len(line_list) != 0
+
+            wids = [int(wid) for wid in line_list]
+            # print wids[0]
+            pz_d = self.infer_topic_from_wids(wids)
+            out = " ".join([str(p) for p in pz_d])
+            out_f.write(out + "\n")
             # sent_list.append(wids)
             # break
         # pz_d.extend(self.infer_topic(sent_list))
-        return np.array(pz_d)
+        out_f.close()
+        logging.debug("time spend: %.3f" % (time.time() - t1))
+        return out_pt
+
+    def quick_infer_topics_from_file(self, doc_pt, is_raw=False):
+        """infer topics of new documents given topic model
+        The process will automatically write a doc_id file in the origial doc path
+        
+        Args:
+            doc_pt (str): file path for input doc (word idx / word segmented by space)
+            model_dir (str): directory path for model
+            K (str): number of topics
+            cal_type (str, optional): how to get document-topic distribution by biterms:
+                sum_b, sum_w or mix
+        
+        """
+        logging.debug("inferring doc from file using C++")
+        if is_raw:
+            did_pt = doc_pt + ".id"
+
+        cmd = ["%ssrc2/btm" % ROOT_DIR, "inf", cal_type, str(self.K), doc_pt, self.model_dir, ".test.pz_d"]
+        # print "running command:", " ".join(cmd)
+
+        t1 = time.time()
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        returncode = process.wait()
+        logging.debug("time spend: %.3f" % (time.time() - t1))
+        # print returncode
+        logging.debug(process.stdout.read())
+        zd_pt = self.model_dir + "k%d.test.pz_d" % self.K
+        return zd_pt
 
 # util funcs
 def id2word(pt):
@@ -189,37 +317,63 @@ def get_biterm(word_list):
             biterms.append(Biterm(wi, wj))
     return biterms
 
-
-def infer_topics_from_file(did_pt, model_dir, K, cal_type="sum_b", suffix=SUFFIX):
-    """infer topics of new documents given topic model
-    The process will automatically write a doc_id file in the origial doc path
+def parse_line(line, w2id, mode=0):
+    """parse line according to line format
     
     Args:
-        did_pt (str): file path for input doc (word idx segmented by space)
-        model_dir (str): directory path for model
-        K (str): number of topics
-        cal_type (str, optional): how to get document-topic distribution by biterms:
-            sum_b, sum_w or mix
+        line (str): input line
+        mode (int, optional): 
+            0: q1.valid/train
+            1: valid/train.txt
     
+    Returns:
+        str: line_list output
     """
-    cmd = ["/home/slhome/htl11/workspace/topic-model/btm/src2/btm", "inf", cal_type, str(K), did_pt, model_dir, suffix]
-    # print "running command:", " ".join(cmd)
-    t1 = time.time()
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    returncode = process.wait()
-    print time.time() - t1
-    # print returncode
-    print process.stdout.read()
+    if not line.strip():
+        return ""
+    line = line.decode("utf8").strip()
+    line_list = []
+    if mode == 0:
+        tmp_list = line.split("\t")
+        line_list.append(int(tmp_list[0].split()[-1]))
+        line_list.append([int(wid) for wid in tmp_list[1].split()])
+    elif mode == 1:
+        tmp_list = line.split("\t")
+        line_list.append(int(tmp_list[0].split()[-1]))
+        line_list.append([int(w2id[w]) for w in tmp_list[1].split() if w in w2id])
+
+    return line_list
+
+def transform_doc(doc_pt, w2id, mode)
+    filename = doc_pt.split("/")[-1]
+    did_pt = ROOT_DIR + "%s.id" % filename
+    out_f = open(did_pt, "w")
+    for line in open(doc_pt):
+        line_list = parse_line(line, w2id, mode=mode)
+        output = " ".join([str(wid) for wid in line_list[-1]])
+        did_pt.write(output + "\n")
+    return did_pt
 
 
 if __name__ == '__main__':
-    btm = BTM(model_str="output-post-k100-fstop")
-    btm = BTM(model_str="output-all-k1000-fstop")
+    voca_pt = ROOT_DIR + MODEL_STR + "/vocab.txt"
+    w2id = word2id(voca_pt)
+    # btm = BTM(model_str=MODEL_STR)
+    DOC_DIR = "/slfs1/users/xyw00/STC2/trigger_knowledge/dmn/data/"
+
+    print transform_doc(DOC_DIR + "q1.valid", w2id, mode=0)
+    print transform_doc(DOC_DIR + "q1.train", w2id, mode=0)
+    print transform_doc(DOC_DIR + "train.txt", w2id, mode=1)
     # btm.disp_topics()
     # print btm
     # btm.disp_doc(u"太假 了 , 不过 创意 不错")
-    print btm.infer_topic([u"太假 了 , 不过 创意 不错"])
-    print btm.infer_topic([u"我 爱"])
-    print btm.infer_topic([u""])
+    # print btm.infer_topic([u"太假 了 , 不过 创意 不错"])
+    # print btm.infer_topic([u"我 爱"])
+    # print btm.infer_topic([u""])
+    # did_pt = "/home/slhome/htl11/data/stc-data/valid.1.txt"
+    # doc_pt = "/home/slhome/htl11/data/stc-data/newvalid.txt"
+    # doc_pt = "/home/slhome/htl11/data/stc-data/newvalid.txt"
+    # print btm.infer_topics_from_file(doc_pt, is_raw=True)
+    # print btm.quick_infer_topics_from_file(doc_pt)
     # did_pt = "/home/slhome/htl11/data/stc-data/valid.1.txt.id"
     # print btm.infer_topics_from_file(did_pt)

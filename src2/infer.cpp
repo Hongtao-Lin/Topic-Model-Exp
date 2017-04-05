@@ -7,7 +7,7 @@
 #include "str_util.h"
 #include "infer.h"
 
-void Infer::run(string docs_pt, string model_dir, string suffix) {
+void Infer::run(string docs_pt, string model_dir, string suffix, string infer_type) {
   load_para(model_dir);
 
   cout << "Infer p(z|d) for docs in: " << docs_pt << endl;
@@ -24,8 +24,13 @@ void Infer::run(string docs_pt, string model_dir, string suffix) {
     Doc doc(line);
     Pvec<double> pz_d(K);
     doc_infer(doc, pz_d);
+
+    if (infer_type == "max_idx") {
+      wf << pz_d.max_idx() << endl;
+    } else if (infer_type == "prob") {
+      wf << pz_d.str() << endl;
+    }
     // write p(z|d) for d, a doc a time
-    wf << pz_d.str() << endl;
   }
 }
 

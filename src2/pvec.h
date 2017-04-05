@@ -165,7 +165,7 @@ public:
   T &operator[](int i) {
 	if (i >= p.size())
 	  cout << "ERR: index=" << i << ", size=" << p.size() << endl;
-	assert(i < p.size());
+		assert(i < p.size());
 	return p[i]; 
   }
 
