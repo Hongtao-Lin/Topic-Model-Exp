@@ -67,7 +67,6 @@ int main(int argc, char* argv[]) {
     string docs_pt(argv[4]);
     string dir(argv[5]);
     string suffix(argv[6]);
-    // string infer_type("max");
     string infer_type(argv[7]);
     cout << "Run inference:K=" << K << ", type " << type << " ====" << endl;
     Infer inf(type, K);

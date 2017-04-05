@@ -107,6 +107,9 @@ def filter_doc(doc_pt, w2id, text_mode):
 
 
 def write_doc2id(doc_pt, dwid_pt, voca_pt, text_mode, debug=False):
+    if os.path.isfile(dwid_pt):
+        return
+
     print 'write:', dwid_pt
     filter_cnt = 0
     total_doc = 0

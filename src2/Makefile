@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-c -pipe -O3 -fopenmp
+CFLAGS=-c -std=c++11 -pipe -O3 -fopenmp
 MODEL_OBJ=model.o infer.o main.o
 MODEL_EXE=btm
 

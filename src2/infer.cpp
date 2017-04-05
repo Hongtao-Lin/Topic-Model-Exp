@@ -22,6 +22,7 @@ void Infer::run(string docs_pt, string model_dir, string suffix, string infer_ty
   string line;
   while (getline(rf, line)) {
     Doc doc(line);
+    // cout << line << endl;
     Pvec<double> pz_d(K);
     doc_infer(doc, pz_d);
 
@@ -76,14 +77,11 @@ void Infer::doc_infer_sum_b(const Doc& doc, Pvec<double>& pz_d) {
     doc.gen_biterms(bs);
 
     int W = pw_z.cols();
-
     for (int b = 0; b < bs.size(); ++b) {
       int w1 = bs[b].get_wi();
       int w2 = bs[b].get_wj();
-
       // filter out-of-vocabulary words
       if (w2 >= W) continue;
-      
       // compute p(z|b) \propo p(w1|z)p(w2|z)p(z)
       Pvec<double> pz_b(K);
       // #pragma omp parallel for num_threads(1)
@@ -98,7 +96,7 @@ void Infer::doc_infer_sum_b(const Doc& doc, Pvec<double>& pz_d) {
         pz_d[k] += pz_b[k];
     }
   }
-  
+  // cout << pz_d.str() << endl;
   pz_d.normalize();
 }
 

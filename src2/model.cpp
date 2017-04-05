@@ -53,22 +53,38 @@ void Model::run(string doc_pt, string res_dir) {
 }
 
 bool Model::model_exist(string res_dir) {
-  string tmp_dir = res_dir + "k" + str_util::itos(K) + ".nz";
+  string tmp_dir = res_dir + "k" + str_util::itos(K) + ".pz";
   ifstream f(tmp_dir.c_str());
   return f.good();
 }
 
 void Model::load_model(string res_dir) {
-  string pt = res_dir + "k" + str_util::itos(K) + ".nz";
-  cout << "load nb_z:" << pt <<endl;
-  nb_z.loadFile(pt);
-  assert(nb_z.sum() == bs.size());
+  // string pt = res_dir + "k" + str_util::itos(K) + ".nz";
+  // cout << "load nb_z:" << pt <<endl;
+  // nb_z.loadFile(pt);
+  // assert(nb_z.sum() == bs.size());
 
-  string pt2 = res_dir + "k" + str_util::itos(K) + ".nw_z";
-  cout << "load nwz:" << pt2 <<endl;
-  nwz.load(pt2);
+  // string pt2 = res_dir + "k" + str_util::itos(K) + ".nw_z";
+  // cout << "load nwz:" << pt2 <<endl;
+  // nwz.load(pt2);
+  // printf("n(z)=%d, n(w)=%d\n", nwz.rows(), nwz.cols());
+  cout << "Reload model" << endl;
+  string pt = res_dir + "k" + str_util::itos(K) + ".pz";
+  cout << "Load nb_z:" << pt <<endl;
+  Pvec<double> pz;
+  pz.loadFile(pt);
+  // cout << bs.size() << " " << pz.sum() << endl;
+  nb_z = pz.de_normalize(bs.size(), alpha);
+
+  string pt2 = res_dir + "k" + str_util::itos(K) + ".pw_z";
+  cout << "Load nwz:" << pt2 <<endl;
+  Pmat<double> pw_z;
+  pw_z.load(pt2);
+  for(size_t k = 0; k < K; k++) {
+    nwz[k] = pw_z[k].de_normalize(2* nb_z[k], beta);
+  }
+  // nwz.load(pt2);
   printf("n(z)=%d, n(w)=%d\n", nwz.rows(), nwz.cols());
-
 }
 
 void Model::model_init() {

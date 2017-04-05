@@ -4,7 +4,7 @@
 #dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
 cd ~/workspace/topic-model/btm/script/
 
-K=1000   # number of topics
+K=100   # number of topics
 
 alpha=`echo "scale=3;50/$K"|bc`
 beta=0.001
@@ -13,7 +13,7 @@ save_step=20
 has_b=0
 
 input_dir=~/data/stc-data/
-output_dir=../output-test/
+output_dir=../output-post-k100-fstop/
 model_dir=${output_dir}model/
 
 mkdir ${output_dir}
@@ -40,10 +40,10 @@ echo "../src/btm est $K $W $alpha $beta $niter $save_step $dwid_pt $model_dir"
 
 ## infer p(z|d) for each doc
 suffix=".pz_d"
-
+infer_type="prob"
 echo "================ Infer P(z|d) ==============="
 echo "../src/btm inf sum_b $K $dwid_pt $model_dir"
-../src2/btm inf sum_b $K $dwid_pt $model_dir $suffix
+../src2/btm inf sum_b $K $dwid_pt $model_dir $suffix $infer_type
 
 ## output top word of each topic
 echo "================ Topic Display ============="
