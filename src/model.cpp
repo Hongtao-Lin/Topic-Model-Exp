@@ -15,10 +15,12 @@
 void Model::run(string doc_pt, string res_dir, int P) {
   load_docs(doc_pt);
 
-  if ( model_exist(res_dir) ) {
+  if (model_exist(res_dir)) {
   	load_model(res_dir);
+  } else {
+    model_init();
   }
-  model_init();
+  // model_init();
   int N = bs.size();
 
   cout << "Begin iteration" << endl;
@@ -34,13 +36,8 @@ void Model::run(string doc_pt, string res_dir, int P) {
     for (int b = 0; b < bs.size(); ++b) {
       update_biterm(bs[b]);
     }
-    // {
-      // int p = omp_get_thread_num();
-      // printf("Thread %d, on cpu %d\n", omp_get_thread_num(), sched_getcpu());
-      // for (int b = p*N/P; b < (p+1)*N/P; ++b) {
-    // }
     recompute_count();
-    save_raw_res(out_dir);
+    save_res(out_dir);
     if (it % save_step == 0) {
       save_res(out_dir);
     }
@@ -52,46 +49,38 @@ void Model::run(string doc_pt, string res_dir, int P) {
 }
 
 bool Model::model_exist(string res_dir) {
-  string tmp_dir = res_dir + "k" + str_util::itos(K) + ".pz";
+  string tmp_dir = res_dir + "k" + str_util::itos(K) + ".bs";
   ifstream f(tmp_dir.c_str());
   return f.good();
 }
 
 void Model::load_model(string res_dir) {
-  // string pt = res_dir + "k" + str_util::itos(K) + ".nz";
-  // cout << "load nb_z:" << pt <<endl;
-  // nb_z.loadFile(pt);
-  // assert(nb_z.sum() == bs.size());
+  cout << "Reload model..." << endl;
+  string pt = res_dir + "k" + str_util::itos(K) + ".bs";
+  cout << "Load bs: " << pt <<endl;
+  int B = bs.size();
+  bs.clear();
 
-  // string pt2 = res_dir + "k" + str_util::itos(K) + ".nw_z";
-  // cout << "load nwz:" << pt2 <<endl;
-  // nwz.load(pt2);
-  // printf("n(z)=%d, n(w)=%d\n", nwz.rows(), nwz.cols());
-  cout << "Reload model" << endl;
-  string pt = res_dir + "k" + str_util::itos(K) + ".pz";
-  cout << "Load nb_z:" << pt <<endl;
-  Pvec<double> pz;
-  pz.loadFile(pt);
-  // cout << bs.size() << " " << pz.sum() << endl;
-  nb_z = pz.de_normalize(bs.size(), alpha);
-
-  string pt2 = res_dir + "k" + str_util::itos(K) + ".pw_z";
-  cout << "Load nwz:" << pt2 << endl;
-  Pmat<double> pw_z;
-  pw_z.load(pt2);
-  for(size_t k = 0; k < K; k++) {
-    nwz[k] = pw_z[k].de_normalize(2* nb_z[k], beta);
+  ifstream rf(pt.c_str());
+  if (!rf) 
+    EXIT_ERR("file not find:", pt.c_str());
+  int wi, wj, z;
+  while (rf >> wi >> wj >> z) {
+    bs.push_back(Biterm(wi, wj, z));
+    nb_z[k] += 1;
+    nwz[k][w1] += 1;
+    nwz[k][w2] += 1;
   }
-  // nwz.load(pt2);
-  printf("n(z)=%d, n(w)=%d\n", nwz.rows(), nwz.cols());
+  assert(bs.size() == B);
+  cout << "Reload complete" << endl;
 }
 
 void Model::model_init() {
   srand(time(NULL));
   // random initialize
   for (vector<Biterm>::iterator b = bs.begin(); b != bs.end(); ++b) {
-  int k = Sampler::uni_sample(K);
-  assign_biterm_topic(*b, k);
+    int k = Sampler::uni_sample(K);
+    assign_biterm_topic(*b, k);
   }
 }
 
@@ -101,7 +90,7 @@ void Model::load_docs(string dfile) {
   cout << "load docs: " << dfile << endl;
   ifstream rf( dfile.c_str() );
   if (!rf) {
-  cout << "file not find:" << dfile << endl;
+    cout << "file not find:" << dfile << endl;
   exit(-1);
   }
 
@@ -142,7 +131,9 @@ void Model::reset_biterm_topic(Biterm& bi) {
   nb_z[k] -= 1; // update number of biterms in topic K
   nwz[k][w1] -= 1;  // update w1's occurrence times in topic K
   nwz[k][w2] -= 1;
-  assert(nb_z[k] > -10e-7 && nwz[k][w1] > -10e-7 && nwz[k][w2] > -10e-7);
+  assert(nb_z[k] > -10e-7); 
+  assert(nwz[k][w1] > -10e-7); 
+  assert(nwz[k][w2] > -10e-7);
   bi.reset_z();
 }
 
@@ -198,37 +189,19 @@ void Model::assign_biterm_topic(Biterm& bi, int k) {
   nwz[k][w2] += 1;
 }
 
-void Model::save_raw_res(string dir) {
-  string pt = dir + "nz";
-  cout << "\nwrite n(z): " << pt << endl;
-  save_nz(pt);
-  
-  string pt2 = dir + "nw_z";
-  cout << "write n(w|z): " << pt2 << endl;
-  save_nw_z(pt2);
-}
-
 
 void Model::save_res(string dir) {
-  string pt = dir + "pz";
-  cout << "\nwrite p(z): " << pt << endl;
-  save_pz(pt);
+  // string pt = dir + "pz";
+  // cout << "\nwrite p(z): " << pt << endl;
+  // save_pz(pt);
   
-  string pt2 = dir + "pw_z";
-  cout << "write p(w|z): " << pt2 << endl;
-  save_pw_z(pt2);
-}
+  // string pt2 = dir + "pw_z";
+  // cout << "write p(w|z): " << pt2 << endl;
+  // save_pw_z(pt2);
 
-void Model::save_nz(string pt) {
-  nb_z.write(pt);
-}
-
-
-void Model::save_nw_z(string pt) {
-  ofstream wf(pt.c_str());
-  for (int k = 0; k < K; k++) {
-    wf << nwz[k].str() << endl;
-  }
+  string pt3 = dir + "bs";
+  cout << "write biterms: " << pt3 << endl;
+  save_bs(pt3);
 }
 
 // p(z) is determinated by the overall proportions
@@ -247,5 +220,12 @@ void Model::save_pw_z(string pt) {
     pw_z[k][w] = (nwz[k][w] + beta) / (nb_z[k] * 2 + W * beta);
 
   wf << pw_z[k].str() << endl;
+  }
+}
+
+void Model::save_bs(string pt) {
+  ofstream wf(pt.c_str());
+  for (int b = 0; b < bs.size(); ++b) {
+    wf << bs[b].str() << endl;
   }
 }

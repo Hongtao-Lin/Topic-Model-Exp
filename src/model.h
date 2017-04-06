@@ -45,9 +45,9 @@ public:
 	K(K), W(W), alpha(a), beta(b), 
 	n_iter(n_iter), has_background(has_b),
 	save_step(save_step) {
-	pw_b.resize(W);
-	nwz.resize(K, W);
-	nb_z.resize(K);
+  	pw_b.resize(W);
+  	nwz.resize(K, W);
+  	nb_z.resize(K);
   }
   
   // run estimate procedures
@@ -75,13 +75,10 @@ private:
   // compute condition distribution p(z|b)
   void compute_pz_b(Biterm& bi, Pvec<double>& p);
 
-  void save_raw_res(string res_dir);
-  void save_nz(string pt);
-  void save_nw_z(string pt);
-
   void save_res(string res_dir);
   void save_pz(string pt);
   void save_pw_z(string pt);
+  void save_bs(string pt);
 };
 
 #endif

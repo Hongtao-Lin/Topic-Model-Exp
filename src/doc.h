@@ -37,7 +37,7 @@ public:
 	
 	for (int i = 0; i < ws.size()-1; ++i) 
 	  for (int j = i+1; j < min(i + win, int(ws.size())); ++j) 
-		bs.push_back( Biterm(ws[i], ws[j]) );
+  		bs.push_back( Biterm(ws[i], ws[j]) );
   }
 
 private:

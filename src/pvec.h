@@ -152,10 +152,14 @@ public:
     if (n.sum() < s) {
       fill = 1;
     }
-    for(int i = 0; i < fill*(s-n.sum()); i++) {
-      n[rand()%K] += fill;
+    cout << n.sum() << " " << s << endl;
+    int diff = fill*(s-n.sum());
+    for(int i = 0; i < diff; i++) {
+      int k = rand() % K;
+      n[k] += fill;
+      // assert(n[k] > -10e-7);
     }
-    // cout << n.sum() << " " << s << endl;
+    // cout < < n.sum() << " " << s << endl;
     assert(n.sum() == s);
     return n;
   }
