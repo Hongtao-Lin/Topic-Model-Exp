@@ -2,19 +2,19 @@
 # run an toy example for BTM
 
 #dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
-cd /speechlab/users/htl11/topic-model/btm/script/
+cd /speechlab/users/htl11/workspace/topic-model/btm/script/
 
 K=1000   # number of topics
 
 alpha=`echo "scale=3;50/$K"|bc`
 beta=0.001
-niter=700
+niter=660
 save_step=20
-has_b=0
-fstop=1
+has_b=1
+fstop=0
 
 input_dir=/speechlab/users/htl11/data/stc-data/
-output_dir=../output-all-k1000-fstop/
+output_dir=../output-all-k1000b-fnone/
 model_dir=${output_dir}model/
 
 

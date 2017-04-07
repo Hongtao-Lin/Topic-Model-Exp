@@ -6,7 +6,7 @@ import os
 import json
 import codecs
 
-res_dir = '/home/slhome/htl11/res/'
+res_dir = '/speechlab/users/htl11/res/'
 stopword_f = res_dir + 'zh-stopwords.json'
 
 freq_thes = 5

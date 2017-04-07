@@ -37,7 +37,7 @@ void Model::run(string doc_pt, string res_dir, int P) {
       update_biterm(bs[b]);
     }
     recompute_count();
-    save_res(out_dir);
+    // save_res(out_dir);
     if (it % save_step == 0) {
       save_res(out_dir);
     }
@@ -64,9 +64,9 @@ void Model::load_model(string res_dir) {
   ifstream rf(pt.c_str());
   if (!rf) 
     EXIT_ERR("file not find:", pt.c_str());
-  int wi, wj, z;
-  while (rf >> wi >> wj >> z) {
-    bs.push_back(Biterm(wi, wj, z));
+  int w1, w2, k;
+  while (rf >> w1 >> w2 >> k) {
+    bs.push_back(Biterm(w1, w2, k));
     nb_z[k] += 1;
     nwz[k][w1] += 1;
     nwz[k][w2] += 1;

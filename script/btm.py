@@ -2,18 +2,20 @@
 # coding=utf-8
 # Function: translate the results from BTM
 from __future__ import print_function
-import sys, os, math, time, random, logging
+import sys, os, math, time, random, logging, json, copy
 import numpy as np
 from collections import OrderedDict, namedtuple
 import subprocess
 
 
-NUM_TOP_WORDS = 20
+NUM_TOP_WORDS = 50
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
-ROOT_DIR = "/home/slhome/htl11/workspace/topic-model/btm/"
-MODEL_STR = "output-all-k1000-fstop"
+ROOT_DIR = "/speechlab/users/htl11/topic-model/btm/"
+MODEL_STR = "output-cmnt-k100-fnone"
+MODEL_STR = "output-all-k1000b-fnone"
 SRC_NAME = "src/btm"
+FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -35,11 +37,16 @@ class BTM(object):
 
     def __init__(self, model_str="output-post-k100-fstop"):
         self.base_dir = "%s%s/" % (ROOT_DIR, model_str)
-        self.K = int(self.base_dir.split("-k")[-1].split("-")[0])
+        self.K = self.base_dir.split("-k")[-1].split("-")[0]
+        if self.K[-1] == "b":
+            self.K = int(self.K[:-1])
+        else:
+            self.K = int(self.K[:])
         voca_pt = self.base_dir + "vocab.txt"
         self.w2id = word2id(voca_pt)
         self.V = len(self.w2id)
         self.id2w = id2word(voca_pt)
+        self.fwid = []
 
         self.model_dir = self.base_dir + "model/"
         self.pz, self.pw_z = self.load_model(self.model_dir)
@@ -64,37 +71,34 @@ class BTM(object):
         if start < 0 or num_words < 0 or start + num_words > self.V:
             raise ValueError("Topic word range invalid!")
         if z is not None:
-            topic_prob = sorted((z, self.pw_z[z]), key=lambda t: t[
-                                1], reverse=True)[start:start + num_words]
+            topic_prob = [(i, p) for i, p in enumerate(self.pw_z[z]) if i not in self.fwid]
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[start:start + num_words]
             return np.array(topic_prob)
 
         top_words = []
-        for topic_prob in self.pw_z:
-            topic_prob = [(i, p) for i, p in enumerate(topic_prob)]
+        for pw_z in self.pw_z:
+            # print(pw_z.shape)
+            topic_prob = [(i, p) for i, p in enumerate(pw_z) if i not in self.fwid]
             topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[
                 start:start + num_words]
             top_words.append(topic_prob)
         return np.array(top_words)
 
     def filter_words(self, filter_pt):
-        """Filter topic-words according to filter vocab, i.e, stopwords,
-        Also adjust vocab mappings accordingly
+        """Filter topic-words according to filter vocab, i.e, stopwords, 
+        Also filter out manually defined words
 
         Args:
             filter_pt (str): file path for filtered words
         """
-        filter_words = open(filter_pt).read().decode("utf8").split()
+        logging.debug("Filter vocab...")
+        filter_words = FILTER_WORDS
+        with open(filter_pt) as f:
+            filter_words += json.loads(f.read().decode("utf8"))
         filter_words = [w for w in filter_words if w in self.w2id]
-        filter_wids = [self.w2id[w] for w in filter_words]
-        self.pw_z = np.delete(self.pw_z, filter_wids, axis=1)
-        # print(np.sum(self.pw_z, axis=1))
-        self.pw_z /= np.sum(self.pw_z, axis=1, keepdims=True)
-        self.V -= len(filter_wids)
-        assert self.pw_z.shape[1] == self.V
-        for w, wid in zip(filter_words, filter_wids):
-            del self.w2id[w]
-            del self.id2w[wid]
+        self.fwid = [self.w2id[w] for w in filter_words]
         self.top_words = self.get_topic_words_from_range(num_words=NUM_TOP_WORDS)
+        print("n(w) = %d" % (self.pw_z.shape[1]-len(self.fwid)))   # 38090
 
     def disp_topic(self, z, pz=0.0):
         output = "%.3f" % pz
@@ -103,14 +107,15 @@ class BTM(object):
         print(output + "\n")
 
     def disp_all_topics(self):
-        print("Display Topics...")
+        start, end = 0, 10
+        print("Display Topics of Range %d - %d..." % (start, end))
         print("p(z)\t\tTop Words")
-        for z, pz in zip(np.argsort(self.pz), np.sort(self.pz))[::-1][:10]:
+        for z, pz in zip(np.argsort(self.pz), np.sort(self.pz))[::-1][start:end]:
             self.disp_topic(z, pz)
 
     def disp_topic_coherence(self, z=None, base_k=1000):
         if not z:
-            z = random.randint(0, self.K)
+            z = random.randint(0, self.K-1)
         print("Display Top and Middle Words of Topic #%d" % z)
         pz = self.pz[z]
         self.disp_topic(z, pz)
@@ -137,6 +142,7 @@ class BTM(object):
         # get cnt from wids
         for line in open(did_pt):
             wids = map(int, line.strip().split())
+            wids = [wid for wid in wids if wid not in self.fwid]
             for wid in wids:
                 word_cnt[wid] = word_cnt.get(wid, 0) + 1
             for biterm in get_biterm(wids):
@@ -146,15 +152,12 @@ class BTM(object):
         # calculate topic coherence:
         for z in range(self.K):
             top_words = [w for w, p in self.top_words[z][:num_top_words]]
-            # print(voca[top_words[0]])
             for i, wi in enumerate(top_words[1:]):
                 for wj in top_words[:i + 1]:
-                    # print(wi, wj)
                     biterm = Biterm(wi, wj)
                     if biterm.wj not in word_cnt:
                         # print(biterm.wj)
                         continue
-                    # assert biterm.wj in word_cnt
                     tmp = (biterm_cnt.get(biterm, 0) + 1.0) / word_cnt[biterm.wj]
                     topic_coherence += math.log(tmp)
 
@@ -178,17 +181,22 @@ class BTM(object):
         total_words, total_prob = 0, 0
         did_pt, zd_pt = self.quick_infer_topics_from_file(doc_pt, is_raw=is_raw, infer_type="prob")
         # p_unk = 1.0 / self.V
+        fpw_z = copy.deepcopy(self.pw_z)
+        for wid in self.fwid:
+            fpw_z[:, wid] = 0
+        fpw_z /= np.sum(fpw_z, axis=1, keepdims=True)
         for pz_d, wids in zip(open(zd_pt), open(did_pt)):
             pz_d = map(float, pz_d.split())  # T
             wids = map(int, wids.strip().split())   # N_m
             for wid in wids:
-                if wid >= self.V:
+                if wid >= self.V or wid in self.fwid:
                     continue
-                p = sum([pw_z[wid] * pz_d[i] for i, pw_z in enumerate(self.pw_z)])
+                p = sum([p[wid] * pz_d[i] for i, p in enumerate(fpw_z)])
                 total_prob += math.log(p)
+                total_words += 1
             # print(p, len(wids))
-            total_words += len(wids)
         total_prob /= total_words
+        print(total_words)
         ppl = math.exp(-total_prob)
 
         # print(ppl)
@@ -199,8 +207,8 @@ class BTM(object):
             did_pt = doc_pt + ".id"
         out_f = open(did_pt, "w")
         for line in open(doc_pt):
-            line = " ".join([str(self.w2id[w])
-                             for w in line.decode("utf8").strip().split() if w in self.w2id])
+            line = " ".join([str(self.w2id[w]) for w in line.decode("utf8").strip().split() 
+                             if w in self.w2id])
             out_f.write(line.encode("utf8") + "\n")
         out_f.close()
         return did_pt
@@ -242,7 +250,8 @@ class BTM(object):
         pz_d = []
         for sent in sent_list:
             if is_raw:
-                wids = [self.w2id[w] for w in sent.strip().split() if w in self.w2id]
+                wids = [self.w2id[w] for w in sent.strip().split() 
+                        if w in self.w2id]
             else:
                 wids = [int(w) for w in sent.strip().split() if int(w) < self.V]
             pz_d.append(self.infer_topic_from_wids(wids))
@@ -302,7 +311,7 @@ class BTM(object):
             out_words = " ".join(["%s:%.4f" % (self.id2w[w], p)
                                   for (w, p) in self.top_words[z]])
             print("%.4f" % pz, ":", out_words.encode("utf8"))
-            print("\n")
+            # print("\n")
 
 
 # util funcs
@@ -377,13 +386,23 @@ if __name__ == '__main__':
     # print(transform_doc(DOC_DIR + "q1.train", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1))
     btm = BTM(model_str=MODEL_STR)
-    filter_pt = "/home/slhome/htl11/res/stopwords-all.txt"
+    filter_pt = "/speechlab/users/htl11/res/zh-stopwords.json"
     btm.filter_words(filter_pt)
     # btm.disp_all_topics()
-    # btm.disp_topic_coherence()
-    doc_pt = "/home/slhome/htl11/data/stc-data/valid.2.txt"
+    # for _ in range(10):
+        # btm.disp_topic_coherence()
+    doc_pt = "/speechlab/users/htl11/data/stc-data/valid.new.txt"
     # did_pt, zd_pt = btm.quick_infer_topics_from_file(doc_pt)
     # print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
-    print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
+    # print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
 
-    btm.disp_doc(u"我 爱 北京 天安门")
+    # btm.disp_doc(u"我 爱 北京 天安门")
+    pass
+
+btm = BTM(model_str=MODEL_STR)
+filter_pt = "/speechlab/users/htl11/res/zh-stopwords.json"
+btm.filter_words(filter_pt)
+# btm.disp_all_topics()
+# for _ in range(10):
+    # btm.disp_topic_coherence()
+doc_pt = "/speechlab/users/htl11/data/stc-data/valid.new.txt"
