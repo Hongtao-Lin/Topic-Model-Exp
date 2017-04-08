@@ -9,12 +9,13 @@ import subprocess
 
 
 NUM_TOP_WORDS = 50
-# FILTER_PATH = '../filter_words.txt' # relative to model directory.
-# SUFFIX = ".test.pz_d"
-ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/"
-MODEL_STR = "output-cmnt-k50-fstop"
-#MODEL_STR = "output-all-k1000b-fnone"
-SRC_NAME = "src/btm"
+# ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
+ROOT_DIR = "/slfs1/users/htl11/"
+WORK_DIR = ROOT_DIR + "topic-model/btm/"
+# MODEL_STR = "output-cmnt-k40-fstop"
+MODEL_STR = "output-all-k1000-fstop"
+EXE_FILE = "src/btm"
+
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
 logging.basicConfig(level=logging.DEBUG)
@@ -36,7 +37,7 @@ class Biterm(namedtuple("Biterm", "wi wj")):
 class BTM(object):
 
     def __init__(self, model_str="output-post-k100-fstop"):
-        self.base_dir = "%s%s/" % (ROOT_DIR, model_str)
+        self.base_dir = "%s%s/" % (WORK_DIR, model_str)
         self.K = self.base_dir.split("-k")[-1].split("-")[0]
         if self.K[-1] == "b":
             self.K = int(self.K[:-1])
@@ -214,7 +215,7 @@ class BTM(object):
         return did_pt
 
     # Add an additional blank class!
-    def infer_topic_from_wids(self, wids):
+    def infer_topic_from_wids(self, wids, infer_type="prob"):
         pz_d = np.zeros((self.K))
         last_z = 0
         if len(wids) == 0:
@@ -233,15 +234,18 @@ class BTM(object):
             pz_d = pz_d / np.sum(pz_d)
 
         pz_d = np.append(pz_d, last_z)
+        if infer_type == "max_idx":
+            pz_d = np.argmax(pz_d)
         return pz_d
 
-    def infer_topic(self, sent_list, is_raw=True):
+    def infer_topics(self, sent_list, is_raw=False, infer_type="prob"):
         """Infer doc-topic distribution from a list of sentences
-
+        
         Args:
             sent_list (list): a list of sentences, word/wordid seperated by space
             is_raw (bool, optional): if is_raw: the sentences are raw strings
-
+            infer_type (str, optional): whether to get the max topic id or all prob
+        
         Returns:
             np.array: array of output distribution
         """
@@ -254,9 +258,39 @@ class BTM(object):
                         if w in self.w2id]
             else:
                 wids = [int(w) for w in sent.strip().split() if int(w) < self.V]
-            pz_d.append(self.infer_topic_from_wids(wids))
+            pz_d.append(self.infer_topic_from_wids(wids, infer_type=infer_type))
         logging.debug("time spend: %.3f" % (time.time() - t1))
         return np.array(pz_d)
+
+    def quick_infer_topics(self, sent_list, is_raw=False, cal_type="sum_b", infer_type="prob"):
+        assert infer_type in ["max_idx", "prob"]
+
+        wids = []
+        for sent in sent_list:
+            if is_raw:
+                wids.append([self.w2id[w] for w in sent.strip().split() 
+                        if w in self.w2id])
+            else:
+                wids.append([int(w) for w in sent.strip().split() if int(w) < self.V])
+
+        did_pt = self.model_dir + "tmp_doc.id"
+        with open(did_pt, "w") as f:
+            for wid in wids:
+                output = " ".join([str(w) for w in wid])
+                f.write(output + "\n")
+
+        did_pt, zd_pt = self.quick_infer_topics_from_file(did_pt, is_raw=False, cal_type=cal_type, infer_type=infer_type)
+        
+        res_list = []
+        with open(zd_pt) as f:
+            for line in f.xreadlines():
+                if infer_type == "prob":
+                    res = [float(p) for p in line.strip().split()]
+                elif infer_type == "max_idx":
+                    res = int(line.strip())
+                res_list.append(res)
+
+        return np.array(res_list)
 
     def quick_infer_topics_from_file(self, doc_pt, is_raw=False,
                                      cal_type="sum_b", infer_type="prob", suffix="pz_d"):
@@ -286,7 +320,7 @@ class BTM(object):
         suffix = ".%s.%s" % (filename, suffix)
         zd_pt = self.model_dir + "k%d%s" % (self.K, suffix)
 
-        cmd = ["%s%s" % (ROOT_DIR, SRC_NAME), "inf", "sum_b",
+        cmd = ["%s%s" % (WORK_DIR, EXE_FILE), "inf", "sum_b",
                str(self.K), did_pt, self.model_dir, suffix, infer_type]
         print("running command:", " ".join(cmd))
         logging.debug(" ".join(cmd))
@@ -368,7 +402,7 @@ def parse_line(line, w2id, mode=0):
 
 def transform_doc(doc_pt, w2id, mode):
     filename = doc_pt.split("/")[-1]
-    did_pt = ROOT_DIR + "%s.id" % filename
+    did_pt = WORK_DIR + "%s.id" % filename
     out_f = open(did_pt, "w")
     for line in open(doc_pt):
         line_list = parse_line(line, w2id, mode=mode)
@@ -377,8 +411,12 @@ def transform_doc(doc_pt, w2id, mode):
     return did_pt
 
 
+
+
 if __name__ == '__main__':
-    # voca_pt = ROOT_DIR + MODEL_STR + "/vocab.txt"
+    filter_pt = "%s/res/zh-stopwords.json" % ROOT_DIR
+    doc_pt = "%s/data/stc-data/valid.btm.txt" % ROOT_DIR
+    voca_pt = WORK_DIR + MODEL_STR + "/vocab.txt"
     # w2id = word2id(voca_pt)
     # DOC_DIR = "/slfs1/users/xyw00/STC2/trigger_knowledge/dmn/data/"
 
@@ -386,16 +424,24 @@ if __name__ == '__main__':
     # print(transform_doc(DOC_DIR + "q1.train", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1))
     btm = BTM(model_str=MODEL_STR)
-    filter_pt = "/lustre/home/acct-csyk/csyk/users/htl11/res/zh-stopwords.json"
-    btm.filter_words(filter_pt)
+    sent_list = []
+    with open(doc_pt) as f:
+        for i in range(1000):
+            sent_list.append(f.readline().strip().decode("utf8"))
+    t1 = time.time()
+    print(btm.quick_infer_topics(sent_list, is_raw=True, infer_type="max_idx")[0])
+    t2 = time.time()
+    print(t2 - t1)
+    print(btm.infer_topics(sent_list, is_raw=True, infer_type="max_idx")[0])
+    t3 = time.time()
+    print(t3 - t2)
+    # btm.filter_words(filter_pt)
     # btm.disp_all_topics()
     # for _ in range(10):
         # btm.disp_topic_coherence()
-    doc_pt = "/lustre/home/acct-csyk/csyk/users/htl11/data/stc-data/valid.new.txt"
     # did_pt, zd_pt = btm.quick_infer_topics_from_file(doc_pt)
     # print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
     # print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
 
     # btm.disp_doc(u"我 爱 北京 天安门")
     pass
-
