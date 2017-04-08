@@ -12,8 +12,8 @@ NUM_TOP_WORDS = 50
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
 ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/"
-MODEL_STR = "output-cmnt-k50-fstop"
-#MODEL_STR = "output-all-k1000b-fnone"
+#MODEL_STR = "output-cmnt-k50-fstop"
+MODEL_STR = "output-all-k500-fstop"
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
