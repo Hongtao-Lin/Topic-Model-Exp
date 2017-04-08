@@ -75,7 +75,7 @@ private:
   // compute condition distribution p(z|b)
   void compute_pz_b(Biterm& bi, Pvec<double>& p);
 
-  void save_res(string res_dir);
+  void save_res(string res_dir, int iter);
   void save_pz(string pt);
   void save_pw_z(string pt);
   void save_bs(string pt);

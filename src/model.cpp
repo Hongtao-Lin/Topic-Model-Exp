@@ -38,13 +38,13 @@ void Model::run(string doc_pt, string res_dir, int P) {
     recompute_count();
     // save_res(out_dir);
     if (it % save_step == 0) {
-      save_res(out_dir);
+      save_res(out_dir, it);
     }
     double t2 = omp_get_wtime();
     printf("Time per iter: %f\n", t2-t1);
   }
 
-  save_res(out_dir);
+  save_res(out_dir, n_iter);
 }
 
 bool Model::model_exist(string res_dir) {
