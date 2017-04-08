@@ -14,7 +14,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm> 
-#include <random>
 
 #define EXIT_ERR( s1, s2 ) {printf("[Error] %s%s\n", s1, s2);   \
     exit(EXIT_FAILURE);}

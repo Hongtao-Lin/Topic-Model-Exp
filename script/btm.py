@@ -11,9 +11,9 @@ import subprocess
 NUM_TOP_WORDS = 50
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
-ROOT_DIR = "/speechlab/users/htl11/topic-model/btm/"
-MODEL_STR = "output-cmnt-k100-fnone"
-MODEL_STR = "output-all-k1000b-fnone"
+ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/"
+MODEL_STR = "output-cmnt-k50-fstop"
+#MODEL_STR = "output-all-k1000b-fnone"
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
@@ -386,12 +386,12 @@ if __name__ == '__main__':
     # print(transform_doc(DOC_DIR + "q1.train", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1))
     btm = BTM(model_str=MODEL_STR)
-    filter_pt = "/speechlab/users/htl11/res/zh-stopwords.json"
+    filter_pt = "/lustre/home/acct-csyk/csyk/users/htl11/res/zh-stopwords.json"
     btm.filter_words(filter_pt)
     # btm.disp_all_topics()
     # for _ in range(10):
         # btm.disp_topic_coherence()
-    doc_pt = "/speechlab/users/htl11/data/stc-data/valid.new.txt"
+    doc_pt = "/lustre/home/acct-csyk/csyk/users/htl11/data/stc-data/valid.new.txt"
     # did_pt, zd_pt = btm.quick_infer_topics_from_file(doc_pt)
     # print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
     # print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
@@ -399,10 +399,3 @@ if __name__ == '__main__':
     # btm.disp_doc(u"我 爱 北京 天安门")
     pass
 
-btm = BTM(model_str=MODEL_STR)
-filter_pt = "/speechlab/users/htl11/res/zh-stopwords.json"
-btm.filter_words(filter_pt)
-# btm.disp_all_topics()
-# for _ in range(10):
-    # btm.disp_topic_coherence()
-doc_pt = "/speechlab/users/htl11/data/stc-data/valid.new.txt"

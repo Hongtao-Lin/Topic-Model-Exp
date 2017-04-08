@@ -31,7 +31,6 @@ void Model::run(string doc_pt, string res_dir, int P) {
     cout << "iter " << it << '/' << n_iter;
     fflush(stdout);
     double t1 = omp_get_wtime();
-    // #pragma omp parallel for num_threads(P)
     #pragma omp parallel for num_threads(P)
     for (int b = 0; b < bs.size(); ++b) {
       update_biterm(bs[b]);
@@ -190,14 +189,14 @@ void Model::assign_biterm_topic(Biterm& bi, int k) {
 }
 
 
-void Model::save_res(string dir) {
-  // string pt = dir + "pz";
-  // cout << "\nwrite p(z): " << pt << endl;
-  // save_pz(pt);
+void Model::save_res(string dir, int iter) {
+  string pt = dir + "pz." + str_util::itos(iter);
+  cout << "\nwrite p(z): " << pt << endl;
+  save_pz(pt);
   
-  // string pt2 = dir + "pw_z";
-  // cout << "write p(w|z): " << pt2 << endl;
-  // save_pw_z(pt2);
+  string pt2 = dir + "pw_z." + str_util::itos(iter);
+  cout << "write p(w|z): " << pt2 << endl;
+  save_pw_z(pt2);
 
   string pt3 = dir + "bs";
   cout << "write biterms: " << pt3 << endl;

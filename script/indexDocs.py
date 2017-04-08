@@ -4,24 +4,23 @@
 import sys
 import os
 import json
-import codecs
 
-res_dir = '/speechlab/users/htl11/res/'
+res_dir = '/lustre/home/acct-csyk/csyk/users/htl11/res/'
 stopword_f = res_dir + 'zh-stopwords.json'
 
 freq_thes = 5
 most_freq_thes = 100
 text_mode = 0
 # mode 0: post + comment, 1: post, 2: comment
-debug = True
+debug = False
 
 
 def load_vocab(pt):
     w2id = {}
-    for line in codecs.open(pt, encoding='utf8'):
+    for line in open(pt):
         if not line.split():
             continue
-        wid, w = line.split()
+        wid, w = line.decode("utf8").split()
         w2id[w] = wid
     return w2id
 
@@ -44,15 +43,15 @@ def build_vocab(pt, text_mode, filter_stop=False, filter_pt=""):
     print "index file: %s" % pt
     w2cnt = {}
     w2id = {}
-    stopwords = json.load(codecs.open(stopword_f, encoding='utf8'))
+    stopwords = json.loads(open(stopword_f).read().decode("utf8"))
     stopword_cnt = {}
 
     for s in stopwords:
         stopword_cnt[s] = 0
-    for i, l in enumerate(codecs.open(doc_pt, encoding='utf8')):
+    for i, l in enumerate(open(doc_pt)):
         if debug and i > 1000:
             break
-        sent_list = read_line(l, text_mode)
+        sent_list = read_line(l.decode("utf8"), text_mode)
         ws = (" ".join(sent_list)).strip().split()
         for w in ws:
             if w in stopwords:
@@ -93,16 +92,16 @@ def build_vocab(pt, text_mode, filter_stop=False, filter_pt=""):
 def filter_doc(doc_pt, w2id, text_mode):
     """Filter out doc if its length < 3 within vocab."""
     new_doc = doc_pt + ".filter.%d" % text_mode
-    f_pt = codecs.open(new_doc, "w", encoding="utf8")
-    for l in codecs.open(doc_pt, encoding='utf8'):
-        sent_list = read_line(l, text_mode)
+    f_pt = open(new_doc, "w")
+    for l in open(doc_pt):
+        sent_list = read_line(l.decode("utf8"), text_mode)
         new_sent_list = []
 
         for i, sent in enumerate(sent_list):
             new_sent = ' '.join([w for w in sent.strip().split() if w in w2id])
             # if len(sent.split()) > 3:
             new_sent_list.append(new_sent)
-            print >>f_pt, new_sent + " vs " + sent
+            print >>f_pt, (new_sent + " vs " + sent).encode("utf8")
         # print >>f_pt, "=>".join(new_sent_list)
 
 
@@ -115,10 +114,10 @@ def write_doc2id(doc_pt, dwid_pt, voca_pt, text_mode, debug=False):
     total_doc = 0
     w2id = load_vocab(voca_pt)
     wf = open(dwid_pt, 'w')
-    for i, l in enumerate(codecs.open(doc_pt, encoding='utf8')):
+    for i, l in enumerate(open(doc_pt)):
         if debug and i > 1000:
             break
-        sent_list = read_line(l, text_mode)
+        sent_list = read_line(l.decode("utf8"), text_mode)
         # print sent_list[0]
         total_doc += len(sent_list)
         for sent in sent_list:

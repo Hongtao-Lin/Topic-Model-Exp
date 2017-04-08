@@ -2,19 +2,21 @@
 # run an toy example for BTM
 
 #dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
-cd /speechlab/users/htl11/workspace/topic-model/btm/script/
 
-K=1000   # number of topics
+root="/lustre/home/acct-csyk/csyk/users/"
+cd /lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/script/
+
+K=500   # number of topics
 
 alpha=`echo "scale=3;50/$K"|bc`
 beta=0.001
-niter=660
-save_step=20
-has_b=1
-fstop=0
+niter=500
+save_step=100
+has_b=0
+fstop=1
 
-input_dir=/speechlab/users/htl11/data/stc-data/
-output_dir=../output-all-k1000b-fnone/
+input_dir=/lustre/home/acct-csyk/csyk/users/htl11/data/stc-data/
+output_dir=../output-all-k$K-fstop/
 model_dir=${output_dir}model/
 
 
@@ -31,6 +33,8 @@ dwid_pt=${output_dir}doc_wids.txt
 voca_pt=${output_dir}vocab.txt
 # filtered words goes to here
 filter_pt=${output_dir}filter_words.txt
+echo "python indexDocs.py $doc_pt $dwid_pt $voca_pt $fstop $filter_pt"
+
 python indexDocs.py $doc_pt $dwid_pt $voca_pt $fstop $filter_pt
 
 ## learning parameters p(z) and p(w|z)
