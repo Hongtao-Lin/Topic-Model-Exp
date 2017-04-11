@@ -11,9 +11,10 @@ import subprocess
 NUM_TOP_WORDS = 50
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
-# ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/"
-ROOT_DIR = "/slfs1/users/htl11/topic-model/btm/"
+# ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
+ROOT_DIR = "/slfs1/users/htl11/"
 # MODEL_STR = "output-cmnt-k50-fstop"
+WORK_DIR = ROOT_DIR + "topic-model/btm/"
 MODEL_STR = "output-all-k50-fstop"
 ITER = 700
 SRC_NAME = "src/btm"
@@ -38,7 +39,7 @@ class Biterm(namedtuple("Biterm", "wi wj")):
 class BTM(object):
 
     def __init__(self, model_str="output-post-k100-fstop", it=None):
-        self.base_dir = "%s%s/" % (ROOT_DIR, model_str)
+        self.base_dir = "%s%s/" % (WORK_DIR, model_str)
         self.K = self.base_dir.split("-k")[-1].split("-")[0]
         self.it = it 
         if self.K[-1] == "b":
@@ -321,7 +322,7 @@ class BTM(object):
         suffix = ".%s.%s" % (filename, suffix)
         zd_pt = self.model_dir + "k%d%s" % (self.K, suffix)
 
-        cmd = ["%s%s" % (ROOT_DIR, SRC_NAME), "inf", "sum_b",
+        cmd = ["%s%s" % (WORK_DIR, SRC_NAME), "inf", "sum_b",
                str(self.K), did_pt, self.model_dir, suffix, infer_type, str(self.it)]
         logging.debug("running command:", " ".join(cmd))
         logging.debug(" ".join(cmd))
@@ -436,8 +437,7 @@ if __name__ == '__main__':
     btm = BTM(model_str=MODEL_STR, it=ITER) 
     # print(transform_doc(DOC_DIR + "q1.valid", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "q1.train", w2id, mode=0))
-    # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1))
-    
+    # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1)) 
     # print("Evaluating model: %s %d" % (MODEL_STR, ITER)) 
     # btm.filter_words(filter_pt)
 
