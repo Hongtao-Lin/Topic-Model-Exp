@@ -69,8 +69,12 @@ int main(int argc, char* argv[]) {
     string dir(argv[5]);
     string suffix(argv[6]);
     string infer_type(argv[7]);
+    int iter = -1;
+    if (argc >= 9) {
+        iter = atoi(argv[8]); 
+    }
     cout << "Run inference:K=" << K << ", type " << type << " ====" << endl;
-    Infer inf(type, K);
+    Infer inf(type, K, iter);
     inf.run(docs_pt, dir, suffix, infer_type);
   } else {
     cout << "Wrong common:" << argv[0] << " " << argv[1] << endl;

@@ -10,8 +10,8 @@ K=50   # number of topics
 
 alpha=`echo "scale=3;50/$K"|bc`
 beta=0.001
-niter=500
-save_step=1
+niter=1000
+save_step=100
 has_b=0
 fstop=1
 

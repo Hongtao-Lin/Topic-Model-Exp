@@ -36,12 +36,16 @@ void Infer::run(string docs_pt, string model_dir, string suffix, string infer_ty
 }
 
 void Infer::load_para(string model_dir) {
-  string pt = model_dir + "k" + str_util::itos(K) + ".pz";
+  string it_suffix = "";
+  if (iter > 0) {
+    it_suffix = "." + str_util::itos(iter);
+  }
+  string pt = model_dir + "k" + str_util::itos(K) + ".pz" + it_suffix;
   cout << "load p(z):" << pt <<endl;
   pz.loadFile(pt);
   assert(abs(pz.sum() - 1) < 1e-4);
  
-  string pt2 = model_dir + "k" + str_util::itos(K) + ".pw_z";
+  string pt2 = model_dir + "k" + str_util::itos(K) + ".pw_z" + it_suffix;
   cout << "load p(w|z):" << pt2 <<endl;
   pw_z.load(pt2);
   printf("n(z)=%d, n(w)=%d\n", pw_z.rows(), pw_z.cols());

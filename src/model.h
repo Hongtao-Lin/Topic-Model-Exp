@@ -54,11 +54,13 @@ public:
   void run(string docs_pt, string res_dir, int P);
   
 private:
+  // for reloading model, need to determine the reload iteration
+  int find_base_iter(string res_dir); 
   // intialize memeber varibles and biterms
   bool model_exist(string res_dir);
   void model_init();    // load from docs
   void load_docs(string docs_pt);
-  void load_model(string res_dir);
+  void load_model(string res_dir, int base_dir);
   
   // update estimate of a biterm
   void update_biterm(Biterm& bi);
