@@ -388,9 +388,11 @@ def transform_doc(doc_pt, w2id, mode):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 3:
+    print(sys.argv)
+    if len(sys.argv) >= 3:
         MODEL_STR = sys.argv[1]
-        ITER = sys.argv[2]
+        ITER = int(sys.argv[2])
+        print(ITER)
     # voca_pt = ROOT_DIR + MODEL_STR + "/vocab.txt"
     # w2id = word2id(voca_pt)
     # DOC_DIR = "/slfs1/users/xyw00/STC2/trigger_knowledge/dmn/data/"
@@ -405,8 +407,8 @@ if __name__ == '__main__':
     btm.filter_words(filter_pt)
 
     print("Human Evaluation I:")
-    # for k in get_normal_samples(btm.K):
-    #     btm.disp_topic_coherence(k)
+    for k in get_normal_samples(btm.K):
+        btm.disp_topic_coherence(k)
 
     doc_pt = "/lustre/home/acct-csyk/csyk/users/htl11/data/stc-data/valid-btm.txt"
     
