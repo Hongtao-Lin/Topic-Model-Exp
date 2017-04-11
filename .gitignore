@@ -1,5 +1,5 @@
-output-*/
-script/core.*
+output*/
+script/core*
 *.pyc
 log/*
 *.log
