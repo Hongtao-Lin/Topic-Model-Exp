@@ -13,11 +13,12 @@ NUM_TOP_WORDS = 50
 # SUFFIX = ".test.pz_d"
 ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/"
 #MODEL_STR = "output-cmnt-k50-fstop"
-MODEL_STR = "output-all-k500-fstop"
+MODEL_STR = "output-all-k50-fstop"
+ITER = 700
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
@@ -35,9 +36,10 @@ class Biterm(namedtuple("Biterm", "wi wj")):
 
 class BTM(object):
 
-    def __init__(self, model_str="output-post-k100-fstop"):
+    def __init__(self, model_str="output-post-k100-fstop", it=None):
         self.base_dir = "%s%s/" % (ROOT_DIR, model_str)
         self.K = self.base_dir.split("-k")[-1].split("-")[0]
+        self.it = it 
         if self.K[-1] == "b":
             self.K = int(self.K[:-1])
         else:
@@ -55,8 +57,9 @@ class BTM(object):
     def load_model(self, model_dir):
         logging.debug("loading models from %s" % model_dir)
         pz, pw_z = [], []
-        z_pt = model_dir + "k%d.pz" % self.K
-        wz_pt = model_dir + "k%d.pw_z" % self.K
+        it_suffix = "" if self.it is None else ".%d" % self.it
+        z_pt = model_dir + "k%d.pz%s" % (self.K, it_suffix)
+        wz_pt = model_dir + "k%d.pw_z%s" % (self.K, it_suffix)
         with open(z_pt) as f:
             pz = [float(z) for z in f.readline().strip().split()]
             assert len(pz) == self.K
@@ -196,10 +199,8 @@ class BTM(object):
                 total_words += 1
             # print(p, len(wids))
         total_prob /= total_words
-        print(total_words)
+        logging.debug(total_words)
         ppl = math.exp(-total_prob)
-
-        # print(ppl)
         return ppl
 
     def _doc2id(self, doc_pt, did_pt=""):
@@ -287,8 +288,8 @@ class BTM(object):
         zd_pt = self.model_dir + "k%d%s" % (self.K, suffix)
 
         cmd = ["%s%s" % (ROOT_DIR, SRC_NAME), "inf", "sum_b",
-               str(self.K), did_pt, self.model_dir, suffix, infer_type]
-        print("running command:", " ".join(cmd))
+               str(self.K), did_pt, self.model_dir, suffix, infer_type, str(self.it)]
+        logging.debug("running command:", " ".join(cmd))
         logging.debug(" ".join(cmd))
         t1 = time.time()
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -338,6 +339,15 @@ def get_biterm(word_list):
             biterms.append(Biterm(wi, wj))
     return biterms
 
+
+def get_normal_samples(k):
+    idxs = []
+    for i in range(4):
+        sidx = int(math.floor(k*i/4))
+        idxs += range(sidx, sidx+5)
+    return idxs
+
+
 # tmp files
 def parse_line(line, w2id, mode=0):
     """parse line according to line format
@@ -378,6 +388,9 @@ def transform_doc(doc_pt, w2id, mode):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) > 3:
+        MODEL_STR = sys.argv[1]
+        ITER = sys.argv[2]
     # voca_pt = ROOT_DIR + MODEL_STR + "/vocab.txt"
     # w2id = word2id(voca_pt)
     # DOC_DIR = "/slfs1/users/xyw00/STC2/trigger_knowledge/dmn/data/"
@@ -385,16 +398,20 @@ if __name__ == '__main__':
     # print(transform_doc(DOC_DIR + "q1.valid", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "q1.train", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1))
-    btm = BTM(model_str=MODEL_STR)
+    
+    print("Evaluating model: %s %d" % (MODEL_STR, ITER)) 
+    btm = BTM(model_str=MODEL_STR, it=ITER) 
     filter_pt = "/lustre/home/acct-csyk/csyk/users/htl11/res/zh-stopwords.json"
     btm.filter_words(filter_pt)
-    # btm.disp_all_topics()
-    # for _ in range(10):
-        # btm.disp_topic_coherence()
-    doc_pt = "/lustre/home/acct-csyk/csyk/users/htl11/data/stc-data/valid.new.txt"
-    # did_pt, zd_pt = btm.quick_infer_topics_from_file(doc_pt)
-    # print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
-    # print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
+
+    print("Human Evaluation I:")
+    # for k in get_normal_samples(btm.K):
+    #     btm.disp_topic_coherence(k)
+
+    doc_pt = "/lustre/home/acct-csyk/csyk/users/htl11/data/stc-data/valid-btm.txt"
+    
+    print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
+    print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
 
     # btm.disp_doc(u"我 爱 北京 天安门")
     pass

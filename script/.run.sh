@@ -6,5 +6,5 @@ module purge
 module load gcc/4.8
 #source ~/users/htl11/bashrc_htl11
 
-#bash $1
-python btm.py
+bash $1
+#python btm.py

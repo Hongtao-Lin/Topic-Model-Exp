@@ -14,9 +14,10 @@
 
 void Model::run(string doc_pt, string res_dir, int P) {
   load_docs(doc_pt);
-
+  int base_iter = 0;
   if (model_exist(res_dir)) {
-  	load_model(res_dir);
+    base_iter = find_base_iter(res_dir);
+  	load_model(res_dir, base_iter);
   } else {
     model_init();
   }
@@ -27,7 +28,7 @@ void Model::run(string doc_pt, string res_dir, int P) {
   string out_dir = res_dir + "k" + str_util::itos(K) + ".";
 
 
-  for (int it = 1; it < n_iter + 1; ++it) {
+  for (int it = 1 + base_iter; it < n_iter + 1 + base_iter; ++it) {
     cout << "iter " << it << '/' << n_iter;
     fflush(stdout);
     double t1 = omp_get_wtime();
@@ -53,8 +54,22 @@ bool Model::model_exist(string res_dir) {
   return f.good();
 }
 
-void Model::load_model(string res_dir) {
-  cout << "Reload model..." << endl;
+int Model::find_base_iter(string res_dir) {
+  int step = 20;
+  int max_iter = 1000;
+  int cur_iter = 0;
+  for (int it = 0; it <= max_iter; it += step) {
+    string tmp_dir = res_dir + "k" + str_util::itos(K) + ".pz." + str_util::itos(it);
+    ifstream f(tmp_dir.c_str());
+    if (f.good()) {
+      cur_iter = it;
+    }
+  }
+  return cur_iter;
+}
+
+void Model::load_model(string res_dir, int base_iter) {
+  cout << "Reload model from iter " << base_iter << endl;
   string pt = res_dir + "k" + str_util::itos(K) + ".bs";
   cout << "Load bs: " << pt <<endl;
   int B = bs.size();

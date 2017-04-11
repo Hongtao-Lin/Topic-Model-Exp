@@ -6,17 +6,17 @@
 root="/lustre/home/acct-csyk/csyk/users/"
 cd /lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/script/
 
-K=200   # number of topics
+K=50   # number of topics
 
 alpha=`echo "scale=3;50/$K"|bc`
 beta=0.001
 niter=1000
 save_step=100
 has_b=0
-fstop=1
+fstop=0
 
 input_dir=/lustre/home/acct-csyk/csyk/users/htl11/data/stc-data/
-output_dir=../output-all-k$K-fstop/
+output_dir=../output-all-k$K-fnone/
 model_dir=${output_dir}model/
 
 

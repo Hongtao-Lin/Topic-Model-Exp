@@ -14,7 +14,7 @@ class Infer {
 private:
   int K;
   string type;			// infer type
-  
+  int iter; 
   string dfile;			// inference docs
   Pvec<double> pz;	    // p(z) = theta
   Pmat<double> pw_z;   // p(w|z) = phi, size K * M
@@ -31,7 +31,7 @@ private:
   void compute_pz_dw(int w, const Pvec<double>& pz_d, Pvec<double>& p); 
   
 public:
-  Infer(string type, int K): type(type), K(K) {}
+  Infer(string type, int K, int iter=-1): type(type), K(K), iter(iter) {}
 
   void run(string docs_pt, string model_dir, string suffix, string infer_type);
 };

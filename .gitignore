@@ -6,3 +6,4 @@ log/*
 *.err
 submit*.sh
 .run*.sh
+*.swp
