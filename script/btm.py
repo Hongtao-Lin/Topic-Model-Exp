@@ -109,7 +109,7 @@ class BTM(object):
         output = "%.3f" % pz
         output += " : " + " ".join(["%s:%.4f" %
                                     (self.id2w[w], p) for (w, p) in self.top_words[z][:]])
-        print(output + "\n")
+        print(output.encode("utf8") + "\n")
 
     def disp_all_topics(self):
         start, end = 0, 10
@@ -128,7 +128,7 @@ class BTM(object):
         output = "%.3f" % pz
         output += " : " + " ".join(["%s:%.4f" %
                                     (self.id2w[w], p) for (w, p) in mid_topic_words[z][:]])
-        print(output + "\n")
+        print(output.encode("utf8") + "\n")
 
     def get_topic_coherence(self, doc_pt, num_top_words=10, is_raw=False):
         """get topic coherence as a ref metric, see Sec5.1.1 original paper of BTM
@@ -335,8 +335,7 @@ class BTM(object):
         return did_pt, zd_pt
 
     def disp_doc(self, sent):
-        print("Display Doc...")
-        print("Ori doc: %s" % sent.encode("utf8"))
+        print("Display Topics for Doc: %s" % sent.encode("utf8"))
         _sent = " ".join([w for w in sent.split() if w in self.w2id])
         print("Fit doc: %s" % _sent.encode("utf8"))
         wids = [int(self.w2id[w]) for w in _sent.split()]
@@ -425,15 +424,16 @@ def transform_doc(doc_pt, w2id, mode):
 
 
 if __name__ == '__main__':
-    print(sys.argv)
     if len(sys.argv) >= 3:
         MODEL_STR = sys.argv[1]
         ITER = int(sys.argv[2])
-        print(ITER)
+
     filter_pt = "%s/res/zh-stopwords.json" % ROOT_DIR
     doc_pt = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
+    doc_pt2 = "%s/data/stc-data/valid-btm-doc.txt" % ROOT_DIR
     voca_pt = WORK_DIR + MODEL_STR + "/vocab.txt"
     # DOC_DIR = "/slfs1/users/xyw00/STC2/trigger_knowledge/dmn/data/"
+    print("Evaluating model: %s %s" % (MODEL_STR, ITER))
 
     btm = BTM(model_str=MODEL_STR, it=ITER) 
     # print(transform_doc(DOC_DIR + "q1.valid", w2id, mode=0))
@@ -449,5 +449,9 @@ if __name__ == '__main__':
     print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
     print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
 
-    # btm.disp_doc(u"我 爱 北京 天安门")
+    print("Display Docs:")
+    with open(doc_pt2) as f:
+        for line in f.readlines():
+            sent = line.decode("utf8").strip()
+            btm.disp_doc(sent)
     pass
