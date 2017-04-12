@@ -20,7 +20,7 @@ ITER = 700
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
@@ -38,7 +38,7 @@ class Biterm(namedtuple("Biterm", "wi wj")):
 
 class BTM(object):
 
-    def __init__(self, model_str="output-post-k100-fstop", it=None):
+    def __init__(self, model_str="output-all-k50-fstop", it=None):
         self.base_dir = "%s%s/" % (WORK_DIR, model_str)
         self.K = self.base_dir.split("-k")[-1].split("-")[0]
         self.it = it 
@@ -251,7 +251,7 @@ class BTM(object):
         Returns:
             np.array: array of output distribution
         """
-        logging.debug("infering doc from input sentences")
+        logging.debug("Infering Doc from Input Sentences")
         t1 = time.time()
         pz_d = []
         for sent in sent_list:
@@ -261,7 +261,7 @@ class BTM(object):
             else:
                 wids = [int(w) for w in sent.strip().split() if int(w) < self.V]
             pz_d.append(self.infer_topic_from_wids(wids, infer_type=infer_type))
-        logging.debug("time spend: %.3f" % (time.time() - t1))
+        logging.debug("Time Spend: %.3f" % (time.time() - t1))
         return np.array(pz_d)
 
     def quick_infer_topics(self, sent_list, is_raw=False, cal_type="sum_b", infer_type="prob"):
@@ -312,7 +312,7 @@ class BTM(object):
             str: file path for word ids
             str: file path for output topic-doc distribution
         """
-        logging.debug("inferring doc from file using C++")
+        logging.debug("Inferring Doc from File using C++")
         filename = doc_pt.split("/")[-1]
         if is_raw:
             did_pt = self.model_dir + "%s.id" % filename
@@ -324,12 +324,12 @@ class BTM(object):
 
         cmd = ["%s%s" % (WORK_DIR, SRC_NAME), "inf", "sum_b",
                str(self.K), did_pt, self.model_dir, suffix, infer_type, str(self.it)]
-        logging.debug("running command:", " ".join(cmd))
+        logging.debug("Running Command:", " ".join(cmd))
         logging.debug(" ".join(cmd))
         t1 = time.time()
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         # returncode = process.wait()
-        logging.debug("time spend: %.3f" % (time.time() - t1))
+        logging.debug("Time Spend: %.3f" % (time.time() - t1))
         # print(returncode)
         logging.debug(process.stdout.read())
         return did_pt, zd_pt
@@ -430,7 +430,7 @@ if __name__ == '__main__':
 
     filter_pt = "%s/res/zh-stopwords.json" % ROOT_DIR
     doc_pt = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
-    doc_pt2 = "%s/data/stc-data/valid-btm-doc.txt" % ROOT_DIR
+    doc_pt2 = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
     voca_pt = WORK_DIR + MODEL_STR + "/vocab.txt"
     # DOC_DIR = "/slfs1/users/xyw00/STC2/trigger_knowledge/dmn/data/"
     print("Evaluating model: %s %s" % (MODEL_STR, ITER))
@@ -443,15 +443,37 @@ if __name__ == '__main__':
     # btm.filter_words(filter_pt)
 
     print("Human Evaluation I:")
-    for k in get_normal_samples(btm.K):
-        btm.disp_topic_coherence(k)
+    # for k in get_normal_samples(btm.K):
+    #     btm.disp_topic_coherence(k)
 
-    print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
-    print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
+    # print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
+    # print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
 
     print("Display Docs:")
+    sent_list = []
     with open(doc_pt2) as f:
         for line in f.readlines():
             sent = line.decode("utf8").strip()
-            btm.disp_doc(sent)
+            sent_list.append(sent)
+    prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
+    idx_list = (-prob_list).argsort()[:, :2]
+    perm = np.random.permutation(len(sent_list))
+    logging.debug(prob_list.shape)
+    topic_dict = {}
+    for k in get_normal_samples(btm.K):
+        topic_dict[k] = []
+    for i in perm:
+        k = int(idx_list[i][0])
+        if k not in topic_dict:
+            continue
+        if len(topic_dict[k]) >= 10:
+            continue
+        topic_dict[k].append([zip(prob_list[i, idx_list[i]], idx_list[i]), sent_list[i]])
+    for k in topic_dict:
+        btm.disp_topic_coherence(k)
+        for entry in topic_dict[k]:
+            info_str = " ".join(["%.3f:%d" % (prob, idx) for prob, idx in entry[0]])
+            output = "Display Doc: " + info_str + "" + entry[1]
+            print(output.encode("utf8"))
+        print("\n")
     pass
