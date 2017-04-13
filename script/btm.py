@@ -119,7 +119,7 @@ class BTM(object):
             self.disp_topic(z, pz)
 
     def disp_topic_coherence(self, z=None, base_k=1000):
-        if not z:
+        if z is None:
             z = random.randint(0, self.K-1)
         print("Display Top and Middle Words of Topic #%d" % z)
         pz = self.pz[z]
@@ -324,8 +324,7 @@ class BTM(object):
 
         cmd = ["%s%s" % (WORK_DIR, SRC_NAME), "inf", "sum_b",
                str(self.K), did_pt, self.model_dir, suffix, infer_type, str(self.it)]
-        logging.debug("Running Command:", " ".join(cmd))
-        logging.debug(" ".join(cmd))
+        logging.debug("Running Command: " + " ".join(cmd))
         t1 = time.time()
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         # returncode = process.wait()
@@ -440,14 +439,14 @@ if __name__ == '__main__':
     # print(transform_doc(DOC_DIR + "q1.train", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1)) 
     # print("Evaluating model: %s %d" % (MODEL_STR, ITER)) 
-    # btm.filter_words(filter_pt)
+    btm.filter_words(filter_pt)
 
-    print("Human Evaluation I:")
+    # print("Human Evaluation I:")
     # for k in get_normal_samples(btm.K):
     #     btm.disp_topic_coherence(k)
 
-    # print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
-    # print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
+    print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
+    print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
 
     print("Display Docs:")
     sent_list = []
@@ -473,7 +472,7 @@ if __name__ == '__main__':
         btm.disp_topic_coherence(k)
         for entry in topic_dict[k]:
             info_str = " ".join(["%.3f:%d" % (prob, idx) for prob, idx in entry[0]])
-            output = "Display Doc: " + info_str + "" + entry[1]
+            output = "Display Doc:\t" + info_str + "\t" + entry[1]
             print(output.encode("utf8"))
         print("\n")
     pass
