@@ -57,7 +57,7 @@ class BTM(object):
         self.top_words = self.get_topic_words_from_range(num_words=NUM_TOP_WORDS)
 
     def load_model(self, model_dir):
-        logging.debug("loading models from %s" % model_dir)
+        logging.debug("Loading Models from %s" % model_dir)
         pz, pw_z = [], []
         it_suffix = "" if self.it is None else ".%d" % self.it
         z_pt = model_dir + "k%d.pz%s" % (self.K, it_suffix)
@@ -201,7 +201,6 @@ class BTM(object):
                 total_words += 1
             # print(p, len(wids))
         total_prob /= total_words
-        logging.debug(total_words)
         ppl = math.exp(-total_prob)
         return ppl
 
@@ -447,6 +446,12 @@ if __name__ == '__main__':
 
     print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
     print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
+    
+    # get sample topics in order
+    topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
+    topic_dict = {}
+    for k in topic_idxs:
+        topic_dict[k] = []
 
     print("Display Docs:")
     sent_list = []
@@ -457,10 +462,6 @@ if __name__ == '__main__':
     prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
     idx_list = (-prob_list).argsort()[:, :2]
     perm = np.random.permutation(len(sent_list))
-    logging.debug(prob_list.shape)
-    topic_dict = {}
-    for k in get_normal_samples(btm.K):
-        topic_dict[k] = []
     for i in perm:
         k = int(idx_list[i][0])
         if k not in topic_dict:
@@ -468,7 +469,7 @@ if __name__ == '__main__':
         if len(topic_dict[k]) >= 10:
             continue
         topic_dict[k].append([zip(prob_list[i, idx_list[i]], idx_list[i]), sent_list[i]])
-    for k in topic_dict:
+    for i, k in enumerate(topic_idxs):
         btm.disp_topic_coherence(k)
         for entry in topic_dict[k]:
             info_str = " ".join(["%.3f:%d" % (prob, idx) for prob, idx in entry[0]])
