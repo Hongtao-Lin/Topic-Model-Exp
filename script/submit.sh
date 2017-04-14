@@ -1,5 +1,5 @@
 #!/bin/sh
-K="100"
+K="500"
 F="none"
 job_name="btm-k${K}b-f$F"
 script_name="run.k${K}b.f$F.sh"
