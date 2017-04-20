@@ -2,7 +2,7 @@
 # coding=utf-8
 # Function: translate the results from BTM
 from __future__ import print_function
-import sys, os, math, time, random, logging, json, copy
+import sys, os, math, time, random, logging, json, copy, re
 import numpy as np
 from collections import OrderedDict, namedtuple
 import subprocess
@@ -11,14 +11,22 @@ import subprocess
 NUM_TOP_WORDS = 50
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
-ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
-# ROOT_DIR = "/slfs1/users/htl11/"
+# ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
+ROOT_DIR = "/slfs1/users/htl11/"
 # MODEL_STR = "output-cmnt-k50-fstop"
 WORK_DIR = ROOT_DIR + "topic-model/btm/"
-MODEL_STR = "output-all-k50-fstop"
-ITER = 700
+MODEL_STR = "output-cmnt-k40-fstop"
+# MODEL_STR = "output-all-k500-fstop"
+ITER = None
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
+
+DOC_PT = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
+DOC_PT2 = "%s/data/10-news-group/test_clf.txt" % ROOT_DIR
+WORD_PT = "%s/data/zhwiki/count_unigram.txt" % ROOT_DIR
+BITERM_PT = "%s/data/zhwiki/count_bigram.txt" % ROOT_DIR
+WORD_SW_PT = "%s/data/zhwiki/count_unigram_sw.txt" % ROOT_DIR
+BITERM_SW_PT = "%s/data/zhwiki/count_bigram_sw.txt" % ROOT_DIR
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -41,7 +49,7 @@ class BTM(object):
     def __init__(self, model_str="output-all-k50-fstop", it=None):
         self.base_dir = "%s%s/" % (WORK_DIR, model_str)
         self.K = self.base_dir.split("-k")[-1].split("-")[0]
-        self.it = it 
+        self.it = it
         if self.K[-1] == "b":
             self.K = int(self.K[:-1])
         else:
@@ -77,7 +85,8 @@ class BTM(object):
             raise ValueError("Topic word range invalid!")
         if z is not None:
             topic_prob = [(i, p) for i, p in enumerate(self.pw_z[z]) if i not in self.fwid]
-            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[start:start + num_words]
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[
+                start:start + num_words]
             return np.array(topic_prob)
 
         top_words = []
@@ -103,7 +112,7 @@ class BTM(object):
         filter_words = [w for w in filter_words if w in self.w2id]
         self.fwid = [self.w2id[w] for w in filter_words]
         self.top_words = self.get_topic_words_from_range(num_words=NUM_TOP_WORDS)
-        print("n(w) = %d" % (self.pw_z.shape[1]-len(self.fwid)))   # 38090
+        print("n(w) = %d" % (self.pw_z.shape[1] - len(self.fwid)))   # 38090
 
     def disp_topic(self, z, pz=0.0):
         output = "%.3f" % pz
@@ -120,7 +129,7 @@ class BTM(object):
 
     def disp_topic_coherence(self, z=None, base_k=1000):
         if z is None:
-            z = random.randint(0, self.K-1)
+            z = random.randint(0, self.K - 1)
         print("Display Top and Middle Words of Topic #%d" % z)
         pz = self.pz[z]
         self.disp_topic(z, pz)
@@ -130,28 +139,19 @@ class BTM(object):
                                     (self.id2w[w], p) for (w, p) in mid_topic_words[z][:]])
         print(output.encode("utf8") + "\n")
 
-    def get_topic_coherence(self, doc_pt, num_top_words=10, is_raw=False):
+    def get_topic_coherence(self, ext_resource=True, num_top_words=10, cal_type="umass"):
         """get topic coherence as a ref metric, see Sec5.1.1 original paper of BTM
         Returns:
             float: topic coherence
         """
-        filename = doc_pt.split("/")[-1]
-        if is_raw:
-            did_pt = self.model_dir + "%s.id" % filename
-            did_pt = self._doc2id(doc_pt, did_pt)
+        if ext_resource:
+            if cal_type in ["umass"]:
+                word_pt, biterm_pt = WORD_PT, BITERM_PT
+            else:
+                word_pt, biterm_pt = WORD_SW_PT, BITERM_SW_PT
+            word_cnt, biterm_cnt = btm.load_counts(word_pt, biterm_pt)
         else:
-            did_pt = doc_pt
-
-        word_cnt = {}
-        biterm_cnt = {}
-        # get cnt from wids
-        for line in open(did_pt):
-            wids = map(int, line.strip().split())
-            wids = [wid for wid in wids if wid not in self.fwid]
-            for wid in wids:
-                word_cnt[wid] = word_cnt.get(wid, 0) + 1
-            for biterm in get_biterm(wids):
-                biterm_cnt[biterm] = biterm_cnt.get(biterm, 0) + 1
+            word_cnt, biterm_cnt = btm.get_counts(DOC_PT, is_raw=True)
 
         topic_coherence = 0
         # calculate topic coherence:
@@ -204,12 +204,50 @@ class BTM(object):
         ppl = math.exp(-total_prob)
         return ppl
 
+    def get_counts(self, doc_pt, is_raw=False):
+        filename = doc_pt.split("/")[-1]
+        if is_raw:
+            did_pt = self.model_dir + "%s.id" % filename
+            did_pt = self._doc2id(doc_pt, did_pt)
+        else:
+            did_pt = doc_pt
+
+        word_cnt = {}
+        biterm_cnt = {}
+        # get cnt from wids
+        for line in open(did_pt):
+            wids = map(int, line.strip().split())
+            wids = [wid for wid in wids if wid not in self.fwid]
+            for wid in wids:
+                word_cnt[wid] = word_cnt.get(wid, 0) + 1
+            for biterm in get_biterm(wids):
+                biterm_cnt[biterm] = biterm_cnt.get(biterm, 0) + 1
+        return word_cnt, biterm_cnt
+
+    def load_counts(self, word_pt, biterm_pt):
+        word_cnt = {}
+        biterm_cnt = {}
+        with open(word_pt) as f:
+            for line in f.xreadlines():
+                w, cnt = line.decode("utf8").split("\t")
+                if w not in self.w2id:
+                    continue
+                word_cnt[self.w2id[w]] = int(cnt)
+        with open(biterm_pt) as f:
+            for line in f.xreadlines():
+                wi, wj, cnt = line.decode("utf8").split("\t")
+                if wi not in self.w2id or wj not in self.w2id:
+                    continue
+                biterm = Biterm(self.w2id[wi], self.w2id[wj])
+                biterm_cnt[biterm] = int(cnt)
+        return word_cnt, biterm_cnt
+
     def _doc2id(self, doc_pt, did_pt=""):
         if not did_pt:
             did_pt = doc_pt + ".id"
         out_f = open(did_pt, "w")
         for line in open(doc_pt):
-            line = " ".join([str(self.w2id[w]) for w in line.decode("utf8").strip().split() 
+            line = " ".join([str(self.w2id[w]) for w in line.decode("utf8").strip().split()
                              if w in self.w2id])
             out_f.write(line.encode("utf8") + "\n")
         out_f.close()
@@ -241,12 +279,12 @@ class BTM(object):
 
     def infer_topics(self, sent_list, is_raw=False, infer_type="prob"):
         """Infer doc-topic distribution from a list of sentences
-        
+
         Args:
             sent_list (list): a list of sentences, word/wordid seperated by space
             is_raw (bool, optional): if is_raw: the sentences are raw strings
             infer_type (str, optional): whether to get the max topic id or all prob
-        
+
         Returns:
             np.array: array of output distribution
         """
@@ -255,7 +293,7 @@ class BTM(object):
         pz_d = []
         for sent in sent_list:
             if is_raw:
-                wids = [self.w2id[w] for w in sent.strip().split() 
+                wids = [self.w2id[w] for w in sent.strip().split()
                         if w in self.w2id]
             else:
                 wids = [int(w) for w in sent.strip().split() if int(w) < self.V]
@@ -269,8 +307,8 @@ class BTM(object):
         wids = []
         for sent in sent_list:
             if is_raw:
-                wids.append([self.w2id[w] for w in sent.strip().split() 
-                        if w in self.w2id])
+                wids.append([self.w2id[w] for w in sent.strip().split()
+                             if w in self.w2id])
             else:
                 wids.append([int(w) for w in sent.strip().split() if int(w) < self.V])
 
@@ -280,8 +318,9 @@ class BTM(object):
                 output = " ".join([str(w) for w in wid])
                 f.write(output + "\n")
 
-        did_pt, zd_pt = self.quick_infer_topics_from_file(did_pt, is_raw=False, cal_type=cal_type, infer_type=infer_type)
-        
+        did_pt, zd_pt = self.quick_infer_topics_from_file(
+            did_pt, is_raw=False, cal_type=cal_type, infer_type=infer_type)
+
         res_list = []
         with open(zd_pt) as f:
             for line in f.xreadlines():
@@ -332,6 +371,38 @@ class BTM(object):
         logging.debug(process.stdout.read())
         return did_pt, zd_pt
 
+    def get_doc_coherence(self, prob_list, label_list, cal_type=["nmi", "purity"]):
+        """Get document clustering measurement from other open-source project
+
+        Args:
+            cal_type (str, optional): either nmi, purity, 
+
+        Returns:
+            str: Description
+        """
+        cluster_pt = "%stmp_cluster.txt" % (self.base_dir)
+        label_pt = "%stmp_label.txt" % (self.base_dir)
+        with open(cluster_pt, "w") as f:
+            cluster_idx = np.argmax(prob_list, axis=1)
+            for i, idx in enumerate(cluster_idx):
+                f.write("%d\t%d\n" % (i, idx))
+        with open(label_pt, "w") as f:
+            for i, idx in enumerate(label_list):
+                f.write("%d\t%d\n" % (i, idx))
+        cmd = ["python", "cluster_eval.py"] + ["-%s" % cal for cal in cal_type] + \
+              [label_pt, cluster_pt]
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        logging.debug(process.stdout.read())
+        scores = {}
+        for cal in cal_type:
+            if cal == "purity":
+                score1 = float(re.match(r"macro purity = ()\n", process.stdout.read()).group(1))
+                score2 = float(re.match(r"micro purity = ()\n", process.stdout.read()).group(1))
+                scores.update({"macro purity1": score1, "micro purity": score2})
+            else:
+                scores[cal] = float(re.match(r"%s = ()\n" % cal, process.stdout.read()).group(1))
+        return scores
+
     def disp_doc(self, sent):
         print("Display Topics for Doc: %s" % sent.encode("utf8"))
         _sent = " ".join([w for w in sent.split() if w in self.w2id])
@@ -375,8 +446,8 @@ def get_biterm(word_list):
 def get_normal_samples(k):
     idxs = []
     for i in range(4):
-        sidx = int(math.floor(k*i/4))
-        idxs += range(sidx, sidx+5)
+        sidx = int(math.floor(k * i / 4))
+        idxs += range(sidx, sidx + 5)
     return idxs
 
 
@@ -419,34 +490,31 @@ def transform_doc(doc_pt, w2id, mode):
     return did_pt
 
 
-
-
 if __name__ == '__main__':
     if len(sys.argv) >= 3:
         MODEL_STR = sys.argv[1]
         ITER = int(sys.argv[2])
 
     filter_pt = "%s/res/zh-stopwords.json" % ROOT_DIR
-    doc_pt = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
-    doc_pt2 = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
     voca_pt = WORK_DIR + MODEL_STR + "/vocab.txt"
     # DOC_DIR = "/slfs1/users/xyw00/STC2/trigger_knowledge/dmn/data/"
     print("Evaluating model: %s %s" % (MODEL_STR, ITER))
 
-    btm = BTM(model_str=MODEL_STR, it=ITER) 
+    btm = BTM(model_str=MODEL_STR, it=ITER)
     # print(transform_doc(DOC_DIR + "q1.valid", w2id, mode=0))
     # print(transform_doc(DOC_DIR + "q1.train", w2id, mode=0))
-    # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1)) 
-    # print("Evaluating model: %s %d" % (MODEL_STR, ITER)) 
+    # print(transform_doc(DOC_DIR + "train.txt", w2id, mode=1))
+    # print("Evaluating model: %s %d" % (MODEL_STR, ITER))
     btm.filter_words(filter_pt)
 
     # print("Human Evaluation I:")
     # for k in get_normal_samples(btm.K):
     #     btm.disp_topic_coherence(k)
 
-    print("Perplexity:", btm.get_perplexity(doc_pt, is_raw=True))
-    print("Topic Coherence:", btm.get_topic_coherence(doc_pt, is_raw=True))
-    
+    print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
+    # word_cnt, biterm_cnt = btm.get_counts(doc_pt, is_raw=True)
+    print("Topic Coherence:", btm.get_topic_coherence(ext_resource=True, cal_type="umass"))
+
     # get sample topics in order
     topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
     topic_dict = {}
@@ -455,25 +523,31 @@ if __name__ == '__main__':
 
     print("Display Docs:")
     sent_list = []
-    with open(doc_pt2) as f:
+    label_list = []
+    with open(DOC_PT2) as f:
         for line in f.readlines():
-            sent = line.decode("utf8").strip()
+            sent, label = line.decode("utf8").strip().split("\t")
             sent_list.append(sent)
+            label_list.append(int(label))
     prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
-    idx_list = (-prob_list).argsort()[:, :2]
-    perm = np.random.permutation(len(sent_list))
-    for i in perm:
-        k = int(idx_list[i][0])
-        if k not in topic_dict:
-            continue
-        if len(topic_dict[k]) >= 10:
-            continue
-        topic_dict[k].append([zip(prob_list[i, idx_list[i]], idx_list[i]), sent_list[i]])
-    for i, k in enumerate(topic_idxs):
-        btm.disp_topic_coherence(k)
-        for entry in topic_dict[k]:
-            info_str = " ".join(["%.3f:%d" % (prob, idx) for prob, idx in entry[0]])
-            output = "Display Doc:\t" + info_str + "\t" + entry[1]
-            print(output.encode("utf8"))
-        print("\n")
+    scores = btm.get_doc_coherence(prob_list, label_list)
+    logging.info(scores)
+
+    # nmi = btm.get_doc_
+    # idx_list = (-prob_list).argsort()[:, :2]
+    # perm = np.random.permutation(len(sent_list))
+    # for i in perm:
+    #     k = int(idx_list[i][0])
+    #     if k not in topic_dict:
+    #         continue
+    #     if len(topic_dict[k]) >= 10:
+    #         continue
+    #     topic_dict[k].append([zip(prob_list[i, idx_list[i]], idx_list[i]), sent_list[i]])
+    # for i, k in enumerate(topic_idxs):
+    #     btm.disp_topic_coherence(k)
+    #     for entry in topic_dict[k]:
+    #         info_str = " ".join(["%.3f:%d" % (prob, idx) for prob, idx in entry[0]])
+    #         output = "Display Doc:\t" + info_str + "\t" + entry[1]
+    #         print(output.encode("utf8"))
+    #     print("\n")
     pass
