@@ -400,7 +400,7 @@ class BTM(object):
                 score2 = float(re.match(r"micro purity = ()\n", process.stdout.read()).group(1))
                 scores.update({"macro purity1": score1, "micro purity": score2})
             else:
-                scores[cal] = float(re.match(r"%s = ()\n" % cal, process.stdout.read()).group(1))
+                scores[cal] = float(re.match(r"%s = (.*)\n" % cal, process.stdout.read()).group(1))
         return scores
 
     def disp_doc(self, sent):
