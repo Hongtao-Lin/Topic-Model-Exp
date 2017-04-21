@@ -23,8 +23,8 @@ FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没
 
 DOC_PT = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
 DOC_PT2 = "%s/data/10-news-group/test_clf.txt" % ROOT_DIR
-WORD_PT = "%s/data/zhwiki/count_unigram.txt" % ROOT_DIR
-BITERM_PT = "%s/data/zhwiki/count_bigram.txt" % ROOT_DIR
+WORD_PT = "%s/data/zhwiki/count_unigram_bd.txt" % ROOT_DIR
+BITERM_PT = "%s/data/zhwiki/count_bigram_bd.txt" % ROOT_DIR
 WORD_SW_PT = "%s/data/zhwiki/count_unigram_sw.txt" % ROOT_DIR
 BITERM_SW_PT = "%s/data/zhwiki/count_bigram_sw.txt" % ROOT_DIR
 
@@ -81,11 +81,20 @@ class BTM(object):
         return np.array(pz), np.array(pw_z)
 
     def get_topic_words_from_range(self, start=0, num_words=20, z=None):
-        if start < 0 or num_words < 0 or start + num_words > self.V:
-            raise ValueError("Topic word range invalid!")
-        if z is not None:
+        """sort topic word by their probability in descending order,
+        and get topic words in a certain range
+        
+        args:
+            start (int, optional): start of word rank
+            num_words (int, optional): number of words to pick
+            z (none, optional): if specified, operate only on this topic
+        
+        """
+        if start < 0 or num_words < 0 or start + num_words > self.v:
+            raise valueerror("topic word range invalid!")
+        if z is not none:
             topic_prob = [(i, p) for i, p in enumerate(self.pw_z[z]) if i not in self.fwid]
-            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=true)[
                 start:start + num_words]
             return np.array(topic_prob)
 
@@ -93,7 +102,7 @@ class BTM(object):
         for pw_z in self.pw_z:
             # print(pw_z.shape)
             topic_prob = [(i, p) for i, p in enumerate(pw_z) if i not in self.fwid]
-            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=true)[
                 start:start + num_words]
             top_words.append(topic_prob)
         return np.array(top_words)
@@ -127,7 +136,13 @@ class BTM(object):
         for z, pz in zip(np.argsort(self.pz), np.sort(self.pz))[::-1][start:end]:
             self.disp_topic(z, pz)
 
-    def disp_topic_coherence(self, z=None, base_k=1000):
+    def disp_top_and_middle_topic(self, z=None, base_k=1000):
+        """Display topic by its top words and middle-ranked words
+        
+        Args:
+            z (None, optional): if specified, display only this topic
+            base_k (int, optional): starting rank for middle-ranked words
+        """
         if z is None:
             z = random.randint(0, self.K - 1)
         print("Display Top and Middle Words of Topic #%d" % z)
@@ -139,34 +154,53 @@ class BTM(object):
                                     (self.id2w[w], p) for (w, p) in mid_topic_words[z][:]])
         print(output.encode("utf8") + "\n")
 
-    def get_topic_coherence(self, ext_resource=True, num_top_words=10, cal_type="umass"):
-        """get topic coherence as a ref metric, see Sec5.1.1 original paper of BTM
-        Returns:
-            float: topic coherence
+    def get_topic_coherence(self, num_top_words=10, cal_type="umass"):
+        """get topic coherence as a ref metric, according to cal_type
+        
+        Args:
+            num_top_words (int, optional): number of top words to consider in each topic
+            cal_type (str, optional): select different metric type, 
+                either: umass, uci, npmi
+                see "Exploring the Space of Topic Coherence Measures" for the detailed metric desc
         """
-        if ext_resource:
-            if cal_type in ["umass"]:
-                word_pt, biterm_pt = WORD_PT, BITERM_PT
-            else:
-                word_pt, biterm_pt = WORD_SW_PT, BITERM_SW_PT
-            word_cnt, biterm_cnt = btm.load_counts(word_pt, biterm_pt)
+        # step1: get prob from external corpus
+        if cal_type in ["umass"]:
+            word_pt, biterm_pt = WORD_PT, BITERM_PT
         else:
-            word_cnt, biterm_cnt = btm.get_counts(DOC_PT, is_raw=True)
+            word_pt, biterm_pt = WORD_SW_PT, BITERM_SW_PT
+        word_prob, biterm_prob = self.load_probs(word_pt, biterm_pt)
 
-        topic_coherence = 0
-        # calculate topic coherence:
+        # step2: get word subset segmentation
+        subsets = []
         for z in range(self.K):
             top_words = [w for w, p in self.top_words[z][:num_top_words]]
-            for i, wi in enumerate(top_words[1:]):
-                for wj in top_words[:i + 1]:
-                    biterm = Biterm(wi, wj)
-                    if biterm.wj not in word_cnt:
-                        # print(biterm.wj)
-                        continue
-                    tmp = (biterm_cnt.get(biterm, 0) + 1.0) / word_cnt[biterm.wj]
-                    topic_coherence += math.log(tmp)
+            subset = []
+            if cal_type in ["umass"]:
+                for i, wi in enumerate(top_words[1:]):
+                    for wj in top_words[:i + 1]:
+                        subset.append([wi, wj])
+            else:
+                for i, wi in enumerate(top_words[:-1]):
+                    for wj in top_words[i+1:]:
+                        subset.append([wi, wj])
 
-        topic_coherence /= self.K
+        topic_coherences = [] 
+        eps = 1e-6
+        # step3: calculate topic coherence:
+        for z, subset in enumerate(subsets):
+            topic_coherence = 0
+            for wi, wj in subset:
+                biterm = Biterm(wi, wj)
+                if cal_type in ["umass"]:
+                    topic_coherence += math.log((biterm_prob.get(biterm, 0) + eps) / word_prob[wj])
+                elif cal_type in ["npmi"]:
+                    tmp = math.log((biterm_prob.get(biterm, 0) + eps) / (word_prob[wi] * word_prob[wj]))
+                    topic_coherence += tmp / (-math.log(biterm_prob.get(biterm, 0) + eps))
+            topic_coherences.append([z, topic_coherences])
+
+        sort_topic_coherence = sorted(topic_coherences, lambda k: self.pz[k[0]], reverse=True)    
+
+        coherence = sum(v[1] for v in topic_coherences) self.K
         # print("Topic Coherence: %.3f" % topic_coherence)
         return topic_coherence
 
@@ -204,27 +238,7 @@ class BTM(object):
         ppl = math.exp(-total_prob)
         return ppl
 
-    def get_counts(self, doc_pt, is_raw=False):
-        filename = doc_pt.split("/")[-1]
-        if is_raw:
-            did_pt = self.model_dir + "%s.id" % filename
-            did_pt = self._doc2id(doc_pt, did_pt)
-        else:
-            did_pt = doc_pt
-
-        word_cnt = {}
-        biterm_cnt = {}
-        # get cnt from wids
-        for line in open(did_pt):
-            wids = map(int, line.strip().split())
-            wids = [wid for wid in wids if wid not in self.fwid]
-            for wid in wids:
-                word_cnt[wid] = word_cnt.get(wid, 0) + 1
-            for biterm in get_biterm(wids):
-                biterm_cnt[biterm] = biterm_cnt.get(biterm, 0) + 1
-        return word_cnt, biterm_cnt
-
-    def load_counts(self, word_pt, biterm_pt):
+    def load_probs(self, word_pt, biterm_pt):
         word_cnt = {}
         biterm_cnt = {}
         with open(word_pt) as f:
@@ -232,14 +246,14 @@ class BTM(object):
                 w, cnt = line.decode("utf8").split("\t")
                 if w not in self.w2id:
                     continue
-                word_cnt[self.w2id[w]] = int(cnt)
+                word_cnt[self.w2id[w]] = float(cnt)
         with open(biterm_pt) as f:
             for line in f.xreadlines():
                 wi, wj, cnt = line.decode("utf8").split("\t")
                 if wi not in self.w2id or wj not in self.w2id:
                     continue
                 biterm = Biterm(self.w2id[wi], self.w2id[wj])
-                biterm_cnt[biterm] = int(cnt)
+                biterm_cnt[biterm] = float(cnt)
         return word_cnt, biterm_cnt
 
     def _doc2id(self, doc_pt, did_pt=""):
@@ -510,11 +524,11 @@ if __name__ == '__main__':
 
     # print("Human Evaluation I:")
     # for k in get_normal_samples(btm.K):
-    #     btm.disp_topic_coherence(k)
+    #     btm.disp_top_and_middle_topic(k)
 
     # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
     # word_cnt, biterm_cnt = btm.get_counts(doc_pt, is_raw=True)
-    # print("Topic Coherence:", btm.get_topic_coherence(ext_resource=True, cal_type="umass"))
+    # print("Topic Coherence:", btm.get_topic_coherence(cal_type="umass"))
 
     # get sample topics in order
     topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
@@ -545,7 +559,7 @@ if __name__ == '__main__':
     #         continue
     #     topic_dict[k].append([zip(prob_list[i, idx_list[i]], idx_list[i]), sent_list[i]])
     # for i, k in enumerate(topic_idxs):
-    #     btm.disp_topic_coherence(k)
+    #     btm.disp_top_and_middle_topic(k)
     #     for entry in topic_dict[k]:
     #         info_str = " ".join(["%.3f:%d" % (prob, idx) for prob, idx in entry[0]])
     #         output = "Display Doc:\t" + info_str + "\t" + entry[1]
