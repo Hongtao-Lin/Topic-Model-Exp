@@ -1,15 +1,20 @@
 #!/bin/bash
 
 prefix="output-all"
-lprefix="/lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/log/eval/$prefix"
-python btm.py "$prefix-k50-fnone" 800 > "$lprefix-k50-fnone-n800.out"
-python btm.py "$prefix-k50b-fnone" 800 > "$lprefix-k50b-fnone-n800.out"
-
-for it in 600 800 1000
+lprefix="/lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/log/eval-doc/$prefix"
+for it in 400 600 800
 do
-python btm.py "$prefix-k50-fstop" $it > "$lprefix-k50-fstop-n$it.out"
-python btm.py "$prefix-k200-fstop" $it > "$lprefix-k200-fstop-n$it.out"
-python btm.py "$prefix-k500-fstop" $it > "$lprefix-k500-fstop-n$it.out"
-done
+for f in "stop" "none"
+do
+python btm.py "$prefix-k50-f$f" $it > "$lprefix-k50-f$f-n$it.out"
+python btm.py "$prefix-k50b-f$f" $it > "$lprefix-k50b-f$f-n$it.out"
+echo "python btm.py "$prefix-k50-f$f" $it > \"$lprefix-k50-f$f-n$it.out\""
 
+python btm.py "$prefix-k200-f$f" $it > "$lprefix-k200-f$f-n$it.out"
+python btm.py "$prefix-k200b-f$f" $it > "$lprefix-k200b-f$f-n$it.out"
+
+python btm.py "$prefix-k500-f$f" $it > "$lprefix-k500-f$f-n$it.out"
+python btm.py "$prefix-k500b-f$f" $it > "$lprefix-k500b-f$f-n$it.out"
+done
+done
 

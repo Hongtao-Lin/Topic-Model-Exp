@@ -11,13 +11,13 @@ import subprocess
 NUM_TOP_WORDS = 50
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
-# ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
-ROOT_DIR = "/slfs1/users/htl11/"
+ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
+# ROOT_DIR = "/slfs1/users/htl11/"
 # MODEL_STR = "output-cmnt-k50-fstop"
 WORK_DIR = ROOT_DIR + "topic-model/btm/"
-MODEL_STR = "output-cmnt-k40-fstop"
-# MODEL_STR = "output-all-k500-fstop"
-ITER = None
+# MODEL_STR = "output-cmnt-k40-fstop"
+MODEL_STR = "output-all-k50-fstop"
+ITER = 500
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
@@ -392,15 +392,16 @@ class BTM(object):
         cmd = ["python", "cluster_eval.py"] + ["-%s" % cal for cal in cal_type] + \
               [label_pt, cluster_pt]
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        logging.debug(process.stdout.read())
+        result = process.stdout.read()
+        logging.debug(result)
         scores = {}
         for cal in cal_type:
             if cal == "purity":
-                score1 = float(re.match(r"macro purity = ()\n", process.stdout.read()).group(1))
-                score2 = float(re.match(r"micro purity = ()\n", process.stdout.read()).group(1))
+                score1 = float(re.match(r"macro purity = ()\n", result).group(1))
+                score2 = float(re.match(r"micro purity = ()\n", result).group(1))
                 scores.update({"macro purity1": score1, "micro purity": score2})
             else:
-                scores[cal] = float(re.match(r"%s = (.*)\n" % cal, process.stdout.read()).group(1))
+                scores[cal] = float(re.match(r"%s = (.*)\n" % cal, result).group(1))
         return scores
 
     def disp_doc(self, sent):
@@ -511,9 +512,9 @@ if __name__ == '__main__':
     # for k in get_normal_samples(btm.K):
     #     btm.disp_topic_coherence(k)
 
-    print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
+    # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
     # word_cnt, biterm_cnt = btm.get_counts(doc_pt, is_raw=True)
-    print("Topic Coherence:", btm.get_topic_coherence(ext_resource=True, cal_type="umass"))
+    # print("Topic Coherence:", btm.get_topic_coherence(ext_resource=True, cal_type="umass"))
 
     # get sample topics in order
     topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
@@ -531,7 +532,7 @@ if __name__ == '__main__':
             label_list.append(int(label))
     prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
     scores = btm.get_doc_coherence(prob_list, label_list)
-    logging.info(scores)
+    print(scores)
 
     # nmi = btm.get_doc_
     # idx_list = (-prob_list).argsort()[:, :2]
