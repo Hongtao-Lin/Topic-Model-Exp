@@ -414,6 +414,15 @@ class BTM(object):
                 score1 = float(re.search(r"macro purity = ()\n", result).group(1))
                 score2 = float(re.search(r"micro purity = ()\n", result).group(1))
                 scores.update({"macro purity1": score1, "micro purity": score2})
+                # get detailed score
+                i = 0
+                while not result.split("\n")[i].startswith("detailed purity stat"):
+                    i += 1
+                for k in range(i+1, i+1+self.K):
+                    z, score, cluster_size = result.split("\n")[k].split()
+                    print(z, self.pz[z], score, cluster_size)
+            else:
+                scores[cal] = float(re.search(r"%s = (.*)\n" % cal, result).group(1))
         return scores
 
     def disp_doc(self, sent):
