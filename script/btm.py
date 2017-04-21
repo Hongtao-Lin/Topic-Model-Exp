@@ -397,11 +397,11 @@ class BTM(object):
         scores = {}
         for cal in cal_type:
             if cal == "purity":
-                score1 = float(re.match(r"macro purity = ()\n", result).group(1))
-                score2 = float(re.match(r"micro purity = ()\n", result).group(1))
+                score1 = float(re.search(r"macro purity = ()\n", result).group(1))
+                score2 = float(re.search(r"micro purity = ()\n", result).group(1))
                 scores.update({"macro purity1": score1, "micro purity": score2})
             else:
-                scores[cal] = float(re.match(r"%s = (.*)\n" % cal, result).group(1))
+                scores[cal] = float(re.search(r"%s = (.*)\n" % cal, result).group(1))
         return scores
 
     def disp_doc(self, sent):

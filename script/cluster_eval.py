@@ -468,6 +468,10 @@ def run(cluster_file, category_file, log, options):
         start = time.time()
         score_list = purity(clust2size, clust2cat) 
         append_score(('macro purity', macro(score_list)))
+        log('detailed purity stat:')
+        for i, cluster in enumerate(clust2cat.keys()):
+            score, cluster_size = score_list[i]
+            log(str(cluster) + " " + str(score) + " " + str(cluster_size))
         append_score(('micro purity', micro(score_list)))
         if '-baseline' in options:
             baseline_score_list = purity(baseline_clust2size, baseline_clust2cat) 
