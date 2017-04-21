@@ -196,13 +196,13 @@ class BTM(object):
                 elif cal_type in ["npmi"]:
                     tmp = math.log((biterm_prob.get(biterm, 0) + eps) / (word_prob[wi] * word_prob[wj]))
                     topic_coherence += tmp / (-math.log(biterm_prob.get(biterm, 0) + eps))
-            topic_coherences.append([z, topic_coherences])
+            topic_coherences.append([z, self.pz[z], topic_coherence])
 
-        sort_topic_coherence = sorted(topic_coherences, lambda k: self.pz[k[0]], reverse=True)    
+        sort_topic_coherence = sorted(topic_coherences, lambda k: k[1], reverse=True)    
 
-        coherence = sum(v[1] for v in topic_coherences) self.K
-        # print("Topic Coherence: %.3f" % topic_coherence)
-        return topic_coherence
+        coherence = sum(v[-1] for v in topic_coherences) / self.K
+        print(sort_topic_coherence)
+        return coherence
 
     def get_perplexity(self, doc_pt, is_raw=False):
         """Perplexity of the test dataset.
@@ -413,9 +413,9 @@ class BTM(object):
             if cal == "purity":
                 score1 = float(re.match(r"macro purity = ()\n", result).group(1))
                 score2 = float(re.match(r"micro purity = ()\n", result).group(1))
-                scores.update({"macro purity1": score1, "micro purity": score2})
+                scores.update({"macro purity": score1, "micro purity": score2})
             else:
-                scores[cal] = float(re.match(r"%s = (.*)\n" % cal, result).group(1))
+                scores[cal] = float(re.search(r"%s = (.*)\n" % cal, result).group(1))
         return scores
 
     def disp_doc(self, sent):
@@ -527,8 +527,8 @@ if __name__ == '__main__':
     #     btm.disp_top_and_middle_topic(k)
 
     # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
-    # word_cnt, biterm_cnt = btm.get_counts(doc_pt, is_raw=True)
     # print("Topic Coherence:", btm.get_topic_coherence(cal_type="umass"))
+    # print("Topic Coherence:", btm.get_topic_coherence(cal_type="npmi"))
 
     # get sample topics in order
     topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
