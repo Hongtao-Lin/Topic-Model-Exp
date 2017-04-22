@@ -28,7 +28,7 @@ BITERM_PT = "%s/data/zhwiki/count_bigram_bd.txt" % ROOT_DIR
 WORD_SW_PT = "%s/data/zhwiki/count_unigram_sw.txt" % ROOT_DIR
 BITERM_SW_PT = "%s/data/zhwiki/count_bigram_sw.txt" % ROOT_DIR
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
@@ -90,9 +90,9 @@ class BTM(object):
             z (none, optional): if specified, operate only on this topic
         
         """
-        if start < 0 or num_words < 0 or start + num_words > self.v:
+        if start < 0 or num_words < 0 or start + num_words > self.V:
             raise valueerror("topic word range invalid!")
-        if z is not none:
+        if z is not None:
             topic_prob = [(i, p) for i, p in enumerate(self.pw_z[z]) if i not in self.fwid]
             topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=true)[
                 start:start + num_words]
@@ -102,7 +102,7 @@ class BTM(object):
         for pw_z in self.pw_z:
             # print(pw_z.shape)
             topic_prob = [(i, p) for i, p in enumerate(pw_z) if i not in self.fwid]
-            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=true)[
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[
                 start:start + num_words]
             top_words.append(topic_prob)
         return np.array(top_words)
@@ -411,16 +411,19 @@ class BTM(object):
         scores = {}
         for cal in cal_type:
             if cal == "purity":
-                score1 = float(re.search(r"macro purity = ()\n", result).group(1))
-                score2 = float(re.search(r"micro purity = ()\n", result).group(1))
-                scores.update({"macro purity1": score1, "micro purity": score2})
+                score1 = float(re.search(r"macro purity = (.*)\n", result).group(1))
+                score2 = float(re.search(r"micro purity = (.*)\n", result).group(1))
+                scores.update({"macro-purity": score1, "micro-purity": score2})
                 # get detailed score
                 i = 0
                 while not result.split("\n")[i].startswith("detailed purity stat"):
                     i += 1
+                print("Detailed purity stat:")
                 for k in range(i+1, i+1+self.K):
+                    if len(result.split("\n")[k].split()) != 3:
+                        continue
                     z, score, cluster_size = result.split("\n")[k].split()
-                    print(z, self.pz[z], score, cluster_size)
+                    print(z, self.pz[int(z)], score, cluster_size)
             else:
                 scores[cal] = float(re.search(r"%s = (.*)\n" % cal, result).group(1))
         return scores
@@ -534,8 +537,12 @@ if __name__ == '__main__':
     #     btm.disp_top_and_middle_topic(k)
 
     # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
-    # print("Topic Coherence:", btm.get_topic_coherence(cal_type="umass"))
-    # print("Topic Coherence:", btm.get_topic_coherence(cal_type="npmi"))
+    print("Topic Coherence")
+    # topic_metric = ["umass", "npmi"]
+    topic_metric = []
+    for metric in topic_metric:
+        print("%s" % metric, btm.get_topic_coherence(cal_type=metric))
+    print("")
 
     # get sample topics in order
     topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
@@ -543,7 +550,6 @@ if __name__ == '__main__':
     for k in topic_idxs:
         topic_dict[k] = []
 
-    print("Display Docs:")
     sent_list = []
     label_list = []
     with open(DOC_PT2) as f:
@@ -553,8 +559,11 @@ if __name__ == '__main__':
             label_list.append(int(label))
     prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
     scores = btm.get_doc_coherence(prob_list, label_list)
-    print(scores)
-
+    print("Doc Coherence:")
+    for k, v in scores.items():
+        print(k, v)
+    print("")
+    # print("Display Docs:")
     # nmi = btm.get_doc_
     # idx_list = (-prob_list).argsort()[:, :2]
     # perm = np.random.permutation(len(sent_list))
