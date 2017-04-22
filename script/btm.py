@@ -34,7 +34,7 @@ class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
 
     def __new__(_cls, wi, wj):
-        _wi, _wj = wi, wj
+        _wi, _wj = int(wi), int(wj)
         if wi > wj:
             _wi, _wj = wj, wi
         return tuple.__new__(_cls, (_wi, _wj))
@@ -169,11 +169,17 @@ class BTM(object):
         else:
             word_pt, biterm_pt = WORD_SW_PT, BITERM_SW_PT
         word_prob, biterm_prob = self.load_probs(word_pt, biterm_pt)
-
         # step2: get word subset segmentation
         subsets = []
         for z in range(self.K):
             top_words = [w for w, p in self.top_words[z][:num_top_words]]
+            top_words = []
+            for w, p in self.top_words[z]:
+                if len(top_words) == num_top_words:
+                    break
+                if w in word_prob:
+                    top_words.append(w)
+            assert len(top_words) == num_top_words
             subset = []
             if cal_type in ["umass"]:
                 for i, wi in enumerate(top_words[1:]):
@@ -183,7 +189,7 @@ class BTM(object):
                 for i, wi in enumerate(top_words[:-1]):
                     for wj in top_words[i+1:]:
                         subset.append([wi, wj])
-
+            subsets.append(subset)
         topic_coherences = [] 
         eps = 1e-6
         # step3: calculate topic coherence:
@@ -198,7 +204,7 @@ class BTM(object):
                     topic_coherence += tmp / (-math.log(biterm_prob.get(biterm, 0) + eps))
             topic_coherences.append([z, self.pz[z], topic_coherence])
 
-        sort_topic_coherence = sorted(topic_coherences, lambda k: k[1], reverse=True)    
+        sort_topic_coherence = sorted(topic_coherences, key=lambda k: k[1], reverse=True)    
 
         coherence = sum(v[-1] for v in topic_coherences) / self.K
         print(sort_topic_coherence)
@@ -248,12 +254,16 @@ class BTM(object):
                     continue
                 word_cnt[self.w2id[w]] = float(cnt)
         with open(biterm_pt) as f:
-            for line in f.xreadlines():
+            for i, line in enumerate(f.xreadlines()):
                 wi, wj, cnt = line.decode("utf8").split("\t")
                 if wi not in self.w2id or wj not in self.w2id:
                     continue
                 biterm = Biterm(self.w2id[wi], self.w2id[wj])
                 biterm_cnt[biterm] = float(cnt)
+                if i % 100000 == 0 and i != 0: 
+                    logging.debug(i) 
+                    break 
+            logging.debug("Load Probs Complete") 
         return word_cnt, biterm_cnt
 
     def _doc2id(self, doc_pt, did_pt=""):
@@ -538,8 +548,8 @@ if __name__ == '__main__':
 
     # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
     print("Topic Coherence")
-    # topic_metric = ["umass", "npmi"]
-    topic_metric = []
+    topic_metric = ["npmi", "umass"]
+    # topic_metric = []
     for metric in topic_metric:
         print("%s" % metric, btm.get_topic_coherence(cal_type=metric))
     print("")
