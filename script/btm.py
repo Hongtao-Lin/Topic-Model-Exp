@@ -28,7 +28,7 @@ BITERM_PT = "%s/data/zhwiki/count_bigram_bd.txt" % ROOT_DIR
 WORD_SW_PT = "%s/data/zhwiki/count_unigram_sw.txt" % ROOT_DIR
 BITERM_SW_PT = "%s/data/zhwiki/count_bigram_sw.txt" % ROOT_DIR
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
@@ -83,18 +83,18 @@ class BTM(object):
     def get_topic_words_from_range(self, start=0, num_words=20, z=None):
         """sort topic word by their probability in descending order,
         and get topic words in a certain range
-        
+
         args:
             start (int, optional): start of word rank
             num_words (int, optional): number of words to pick
             z (none, optional): if specified, operate only on this topic
-        
+
         """
         if start < 0 or num_words < 0 or start + num_words > self.V:
-            raise valueerror("topic word range invalid!")
+            raise ValueError("topic word range invalid!")
         if z is not None:
             topic_prob = [(i, p) for i, p in enumerate(self.pw_z[z]) if i not in self.fwid]
-            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=true)[
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[
                 start:start + num_words]
             return np.array(topic_prob)
 
@@ -108,7 +108,7 @@ class BTM(object):
         return np.array(top_words)
 
     def filter_words(self, filter_pt):
-        """Filter topic-words according to filter vocab, i.e, stopwords, 
+        """Filter topic-words according to filter vocab, i.e, stopwords,
         Also filter out manually defined words
 
         Args:
@@ -138,7 +138,7 @@ class BTM(object):
 
     def disp_top_and_middle_topic(self, z=None, base_k=1000):
         """Display topic by its top words and middle-ranked words
-        
+
         Args:
             z (None, optional): if specified, display only this topic
             base_k (int, optional): starting rank for middle-ranked words
@@ -156,10 +156,10 @@ class BTM(object):
 
     def get_topic_coherence(self, num_top_words=10, cal_type="umass"):
         """get topic coherence as a ref metric, according to cal_type
-        
+
         Args:
             num_top_words (int, optional): number of top words to consider in each topic
-            cal_type (str, optional): select different metric type, 
+            cal_type (str, optional): select different metric type,
                 either: umass, uci, npmi
                 see "Exploring the Space of Topic Coherence Measures" for the detailed metric desc
         """
@@ -181,10 +181,10 @@ class BTM(object):
                         subset.append([wi, wj])
             else:
                 for i, wi in enumerate(top_words[:-1]):
-                    for wj in top_words[i+1:]:
+                    for wj in top_words[i + 1:]:
                         subset.append([wi, wj])
 
-        topic_coherences = [] 
+        topic_coherences = []
         eps = 1e-6
         # step3: calculate topic coherence:
         for z, subset in enumerate(subsets):
@@ -194,14 +194,15 @@ class BTM(object):
                 if cal_type in ["umass"]:
                     topic_coherence += math.log((biterm_prob.get(biterm, 0) + eps) / word_prob[wj])
                 elif cal_type in ["npmi"]:
-                    tmp = math.log((biterm_prob.get(biterm, 0) + eps) / (word_prob[wi] * word_prob[wj]))
+                    tmp = math.log((biterm_prob.get(biterm, 0) + eps) /
+                                   (word_prob[wi] * word_prob[wj]))
                     topic_coherence += tmp / (-math.log(biterm_prob.get(biterm, 0) + eps))
             topic_coherences.append([z, self.pz[z], topic_coherence])
-
-        sort_topic_coherence = sorted(topic_coherences, lambda k: k[1], reverse=True)    
+        # get detailed tc by topic descending order
+        sort_topic_coherence = sorted(topic_coherences, lambda k: k[1], reverse=True)
+        print(sort_topic_coherence)
 
         coherence = sum(v[-1] for v in topic_coherences) / self.K
-        print(sort_topic_coherence)
         return coherence
 
     def get_perplexity(self, doc_pt, is_raw=False):
@@ -389,7 +390,7 @@ class BTM(object):
         """Get document clustering measurement from other open-source project
 
         Args:
-            cal_type (str, optional): either nmi, purity, 
+            cal_type (str, optional): either nmi or purity
 
         Returns:
             str: Description
@@ -411,19 +412,16 @@ class BTM(object):
         scores = {}
         for cal in cal_type:
             if cal == "purity":
-                score1 = float(re.search(r"macro purity = (.*)\n", result).group(1))
-                score2 = float(re.search(r"micro purity = (.*)\n", result).group(1))
-                scores.update({"macro-purity": score1, "micro-purity": score2})
-                # get detailed score
+                score1 = float(re.match(r"macro purity = ()\n", result).group(1))
+                score2 = float(re.match(r"micro purity = ()\n", result).group(1))
+                scores.update({"macro purity": score1, "micro purity": score2})
+                # get detailed score by topic descending order
                 i = 0
                 while not result.split("\n")[i].startswith("detailed purity stat"):
                     i += 1
-                print("Detailed purity stat:")
-                for k in range(i+1, i+1+self.K):
-                    if len(result.split("\n")[k].split()) != 3:
-                        continue
+                for k in range(i + 1, i + 1 + self.K):
                     z, score, cluster_size = result.split("\n")[k].split()
-                    print(z, self.pz[int(z)], score, cluster_size)
+                    print(z, self.pz[z], score, cluster_size)
             else:
                 scores[cal] = float(re.search(r"%s = (.*)\n" % cal, result).group(1))
         return scores
@@ -537,12 +535,8 @@ if __name__ == '__main__':
     #     btm.disp_top_and_middle_topic(k)
 
     # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
-    print("Topic Coherence")
-    # topic_metric = ["umass", "npmi"]
-    topic_metric = []
-    for metric in topic_metric:
-        print("%s" % metric, btm.get_topic_coherence(cal_type=metric))
-    print("")
+    # print("Topic Coherence:", btm.get_topic_coherence(cal_type="umass"))
+    # print("Topic Coherence:", btm.get_topic_coherence(cal_type="npmi"))
 
     # get sample topics in order
     topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
@@ -550,6 +544,7 @@ if __name__ == '__main__':
     for k in topic_idxs:
         topic_dict[k] = []
 
+    print("Display Docs:")
     sent_list = []
     label_list = []
     with open(DOC_PT2) as f:
@@ -559,11 +554,8 @@ if __name__ == '__main__':
             label_list.append(int(label))
     prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
     scores = btm.get_doc_coherence(prob_list, label_list)
-    print("Doc Coherence:")
-    for k, v in scores.items():
-        print(k, v)
-    print("")
-    # print("Display Docs:")
+    print(scores)
+
     # nmi = btm.get_doc_
     # idx_list = (-prob_list).argsort()[:, :2]
     # perm = np.random.permutation(len(sent_list))
