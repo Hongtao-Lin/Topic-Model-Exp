@@ -83,14 +83,18 @@ def get_res(in_pt):
     # get doc eval
     while (not line.startswith("Doc Coherence")):
         line = f.readline()
-    while True:
-        line = f.readline()
-        if not line.strip():
-            break
-        metric, score = line.split()
-        metric = metric.strip()
-        score = float(score.strip())
-        res.append(score)
+    scores = json.loads(f.readline().strip())
+    for m in ALL_RES:
+        if m in scores:
+            res.append(scores[m])
+    # while True:
+    #     line = f.readline()
+    #     if not line.strip():
+    #         break
+    #     metric, score = line.split()
+    #     metric = metric.strip()
+    #     score = float(score.strip())
+    #     res.append(score)
 
     output = " | ".join(["%.4f" % v for v in res])
     print(output)

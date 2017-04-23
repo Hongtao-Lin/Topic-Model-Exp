@@ -422,7 +422,7 @@ class BTM(object):
             if cal == "purity":
                 score1 = float(re.search(r"macro purity = (.*)\n", result).group(1))
                 score2 = float(re.search(r"micro purity = (.*)\n", result).group(1))
-                scores.update({"macro purity": score1, "micro purity": score2})
+                scores.update({"macro-purity": score1, "micro-purity": score2})
                 # get detailed score by topic descending order
                 i = 0
                 while not result.split("\n")[i].startswith("detailed purity stat"):
@@ -568,7 +568,8 @@ if __name__ == '__main__':
             label_list.append(int(label))
     prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
     scores = btm.get_doc_coherence(prob_list, label_list)
-    print(scores)
+    for k, v in scores.items():
+        print(k, v)
 
     # nmi = btm.get_doc_
     # idx_list = (-prob_list).argsort()[:, :2]
