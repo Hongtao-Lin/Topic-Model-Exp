@@ -17,6 +17,7 @@ def get_res(in_pt):
     res = []
     f = open(in_pt)
     line = f.readline()
+    ppl = 0.0
     # get ppl
     while (not line.startswith("Perplexity")):
         line = f.readline()
@@ -30,6 +31,8 @@ def get_res(in_pt):
         line = f.readline()
         if not line.strip():
             break
+        if len(line.split()) != 2:
+            continue
         metric, score = line.split()
         metric = metric.strip()
         score = float(score.strip())
@@ -83,18 +86,16 @@ def get_res(in_pt):
     # get doc eval
     while (not line.startswith("Doc Coherence")):
         line = f.readline()
-    scores = json.loads(f.readline().strip())
-    for m in ALL_RES:
-        if m in scores:
-            res.append(scores[m])
-    # while True:
-    #     line = f.readline()
-    #     if not line.strip():
-    #         break
-    #     metric, score = line.split()
-    #     metric = metric.strip()
-    #     score = float(score.strip())
-    #     res.append(score)
+    while True:
+        line = f.readline()
+        if not line.strip():
+            break
+        if len(line.split()) != 2:
+            continue
+        metric, score = line.split()
+        metric = metric.strip()
+        score = float(score.strip())
+        res.append(score)
 
     output = " | ".join(["%.4f" % v for v in res])
     print(output)

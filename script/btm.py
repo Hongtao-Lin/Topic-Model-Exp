@@ -21,7 +21,7 @@ ITER = 500
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
-DOC_PT = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
+
 DOC_PT2 = "%s/data/10-news-group/test_clf.full.txt" % ROOT_DIR
 WORD_PT = "%s/data/zhwiki/count_unigram_bd.txt" % ROOT_DIR
 BITERM_PT = "%s/data/zhwiki/count_bigram_bd.txt" % ROOT_DIR
@@ -544,7 +544,7 @@ if __name__ == '__main__':
     # for k in get_normal_samples(btm.K):
     #     btm.disp_top_and_middle_topic(k)
 
-    # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
+    print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
     print("Topic Coherence")
     topic_metric = ["npmi", "umass"]
     # topic_metric = []
@@ -558,7 +558,7 @@ if __name__ == '__main__':
     for k in topic_idxs:
         topic_dict[k] = []
 
-    print("Display Docs:")
+    print("Doc Coherence:")
     sent_list = []
     label_list = []
     with open(DOC_PT2) as f:
