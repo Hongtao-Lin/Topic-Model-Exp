@@ -11,17 +11,18 @@ import subprocess
 NUM_TOP_WORDS = 50
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
-ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
-# ROOT_DIR = "/slfs1/users/htl11/"
+# ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
+ROOT_DIR = "/slfs1/users/htl11/"
 # MODEL_STR = "output-cmnt-k50-fstop"
 WORK_DIR = ROOT_DIR + "topic-model/btm/"
 # MODEL_STR = "output-cmnt-k40-fstop"
 MODEL_STR = "output-all-k50-fstop"
-ITER = 500
+ITER = 400
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
 
+DOC_PT = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
 DOC_PT2 = "%s/data/10-news-group/test_clf.full.txt" % ROOT_DIR
 WORD_PT = "%s/data/zhwiki/count_unigram_bd.txt" % ROOT_DIR
 BITERM_PT = "%s/data/zhwiki/count_bigram_bd.txt" % ROOT_DIR
@@ -209,6 +210,28 @@ class BTM(object):
         print(sort_topic_coherence)
         coherence = sum(v[-1] for v in topic_coherences) / self.K
         return coherence
+
+    def _get_perplexity(self, sent, is_raw=False):
+        """Test the detailed procedure of calculating ppl"""
+        total_words, total_prob = 0, 0
+        wids = [self.w2id[w] for w in sent.split() if w in self.w2id]
+        pz_d = self.quick_infer_topics([wids], is_raw=False)
+        fpw_z = copy.deepcopy(self.pw_z)
+        for wid in self.fwid:
+            fpw_z[:, wid] = 0
+        fpw_z /= np.sum(fpw_z, axis=1, keepdims=True)
+        for wid in wids:
+            if wid >= self.V or wid in self.fwid:
+                continue
+            print(wid)
+            p = sum([p[wid] * pz_d[i] for i, p in enumerate(fpw_z)])
+            total_prob += math.log(p)
+            total_words += 1
+            # print(p, len(wids))
+        total_prob /= total_words
+        ppl = math.exp(-total_prob)           
+        print(ppl)
+        return ppl
 
     def get_perplexity(self, doc_pt, is_raw=False):
         """Perplexity of the test dataset.
@@ -543,33 +566,33 @@ if __name__ == '__main__':
     # print("Human Evaluation I:")
     # for k in get_normal_samples(btm.K):
     #     btm.disp_top_and_middle_topic(k)
+    print("Test ppl:", btm._get_perplexity(u"除了 李承鹏 的 书 之外 , 都 是 好 书 。"))
+    # print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
+    # print("Topic Coherence")
+    # topic_metric = ["npmi", "umass"]
+    # # topic_metric = []
+    # for metric in topic_metric:
+    #     print("%s" % metric, btm.get_topic_coherence(num_top_words=10, cal_type=metric))
+    # print("")
 
-    print("Perplexity:", btm.get_perplexity(DOC_PT, is_raw=True))
-    print("Topic Coherence")
-    topic_metric = ["npmi", "umass"]
-    # topic_metric = []
-    for metric in topic_metric:
-        print("%s" % metric, btm.get_topic_coherence(num_top_words=10, cal_type=metric))
-    print("")
+    # # get sample topics in order
+    # topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
+    # topic_dict = {}
+    # for k in topic_idxs:
+    #     topic_dict[k] = []
 
-    # get sample topics in order
-    topic_idxs = np.argsort(-btm.pz)[get_normal_samples(btm.K)]
-    topic_dict = {}
-    for k in topic_idxs:
-        topic_dict[k] = []
-
-    print("Doc Coherence:")
-    sent_list = []
-    label_list = []
-    with open(DOC_PT2) as f:
-        for line in f.readlines():
-            sent, label = line.decode("utf8").strip().split("\t")
-            sent_list.append(sent)
-            label_list.append(int(label))
-    prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
-    scores = btm.get_doc_coherence(prob_list, label_list)
-    for k, v in scores.items():
-        print(k, v)
+    # print("Doc Coherence:")
+    # sent_list = []
+    # label_list = []
+    # with open(DOC_PT2) as f:
+    #     for line in f.readlines():
+    #         sent, label = line.decode("utf8").strip().split("\t")
+    #         sent_list.append(sent)
+    #         label_list.append(int(label))
+    # prob_list = btm.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
+    # scores = btm.get_doc_coherence(prob_list, label_list)
+    # for k, v in scores.items():
+    #     print(k, v)
 
     # nmi = btm.get_doc_
     # idx_list = (-prob_list).argsort()[:, :2]
