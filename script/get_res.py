@@ -7,11 +7,12 @@ ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
 WORK_DIR = ROOT_DIR + "topic-model/btm/"
 MODELS = []
 for k in [50, 100, 200, 500]:
-    for it in [400, 600, 800]:
+    # for it in [400, 600, 800]:
+    for it in [400]:
         for f in ["stop", "none"]:
             MODELS.append("output-all-k%d-f%s-n%d" % (k, f, it))
             MODELS.append("output-all-k%db-f%s-n%d" % (k, f, it))
-ALL_RES = ["PPL", "Umass", "NPMI", "Macro Purity", "Micro Purity", "NMI"]
+ALL_RES = ["PPL", "NPMI", "Umass", "Macro Purity", "Micro Purity", "NMI"]
 
 def get_res(in_pt):
     res = []
@@ -86,6 +87,19 @@ def get_res(in_pt):
     # get doc eval
     while (not line.startswith("Doc Coherence")):
         line = f.readline()
+    new_purity = 0
+    topic_cnt = 0
+    while True:
+        line = f.readline()
+        if len(line.split()) != 4:
+            break
+        z, pz, p, cz = line.strip().split()
+        if int(cz) > 5:
+            new_purity += float(p)
+            topic_cnt += 1
+    new_purity /= topic_cnt
+    res.append(new_purity)
+    print(topic_cnt)
     while True:
         line = f.readline()
         if not line.strip():
@@ -104,9 +118,10 @@ def get_res(in_pt):
 
 
 def main():
+    print(ALL_RES)
     for model in MODELS:
         in_pt = WORK_DIR + "log/eval/" + model + ".out"
-        if os.path.exists(in_pt):
+        if os.path.exists(in_pt) and os.path.getsize(in_pt) > 1024:
             print(model)
             res = get_res(in_pt)
     pass

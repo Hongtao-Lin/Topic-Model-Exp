@@ -22,6 +22,7 @@ SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
 
 
+DOC_PT = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
 DOC_PT2 = "%s/data/10-news-group/test_clf.full.txt" % ROOT_DIR
 WORD_PT = "%s/data/zhwiki/count_unigram_bd.txt" % ROOT_DIR
 BITERM_PT = "%s/data/zhwiki/count_bigram_bd.txt" % ROOT_DIR
@@ -260,8 +261,6 @@ class BTM(object):
                     continue
                 biterm = Biterm(self.w2id[wi], self.w2id[wj])
                 biterm_cnt[biterm] = float(cnt)
-                if i % 100000 == 0 and i != 0: 
-                    logging.debug(i) 
             logging.debug("Load Probs Complete") 
         return word_cnt, biterm_cnt
 
