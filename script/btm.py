@@ -28,7 +28,7 @@ WORD_SW_PT = "%s/data/zhwiki/count_unigram_sw.txt" % ROOT_DIR
 BITERM_SW_PT = "%s/data/zhwiki/count_bigram_sw.txt" % ROOT_DIR
 FILTER_PT = "%s/res/zh-stopwords.json" % ROOT_DIR
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
@@ -284,6 +284,7 @@ class BTM(object):
         biterm_cnt = {}
         if prob_type == "sw":
             word_cnt = self.word_sw_cnt
+            biterm_cnt = self.biterm_sw_cnt
         else:
             word_cnt = self.word_cnt
             biterm_cnt = self.biterm_cnt
@@ -495,30 +496,30 @@ class BTM(object):
     def evaluate_model(self, topic_metric, doc_metric):
         """Get evaluation metrics of the model
         """
-        print("Perplexity:", self.get_perplexity(DOC_PT, is_raw=True))
+        # print("Perplexity:", self.get_perplexity(DOC_PT, is_raw=True))
         print("Topic Coherence")
         for metric in topic_metric:
             print("%s" % metric, self.get_topic_coherence(num_top_words=10, cal_type=metric))
         print("")
 
-        # get sample topics in order
-        topic_idxs = np.argsort(-self.pz)[get_normal_samples(self.K)]
-        topic_dict = {}
-        for k in topic_idxs:
-            topic_dict[k] = []
+        # # get sample topics in order
+        # topic_idxs = np.argsort(-self.pz)[get_normal_samples(self.K)]
+        # topic_dict = {}
+        # for k in topic_idxs:
+        #     topic_dict[k] = []
 
-        print("Doc Coherence:")
-        sent_list = []
-        label_list = []
-        with open(DOC_PT2) as f:
-            for line in f.readlines():
-                sent, label = line.decode("utf8").strip().split("\t")
-                sent_list.append(sent)
-                label_list.append(int(label))
-        prob_list = self.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
-        scores = self.get_doc_coherence(prob_list, label_list, cal_type=doc_metric)
-        for k, v in scores.items():
-            print(k, v)
+        # print("Doc Coherence:")
+        # sent_list = []
+        # label_list = []
+        # with open(DOC_PT2) as f:
+        #     for line in f.readlines():
+        #         sent, label = line.decode("utf8").strip().split("\t")
+        #         sent_list.append(sent)
+        #         label_list.append(int(label))
+        # prob_list = self.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
+        # scores = self.get_doc_coherence(prob_list, label_list, cal_type=doc_metric)
+        # for k, v in scores.items():
+        #     print(k, v)
 
 # util funcs
 def id2word(pt):
@@ -605,16 +606,16 @@ if __name__ == '__main__':
         iteration = int(sys.argv[2])
 
     btm = BTM()
-    for iteration in [800]:
+    for iteration in [None]:
         for f in ["stop", "none"]:
-            for k in [50, 100, 200, 500]:
+            for k in [40, 40, 200, 500]:
                 if f == "b":
                     k = "%db" % k
                     f = "none"
                 k = str(k)
-                model_str = "output-k%s-f%s" % (k, f)
+                model_str = "output-cmnt-k%s-f%s" % (k, f)
                 voca_pt = WORK_DIR + model_str + "/vocab.txt"
-                print("Evaluating model: %s %d" % (model_str, iteration))
+                print("Evaluating model: %s %s" % (model_str, iteration))
                 btm.load_model(model_str=model_str, it=iteration)
                 btm.filter_words(FILTER_PT)
                 btm.evaluate_model(topic_metric, doc_metric)
