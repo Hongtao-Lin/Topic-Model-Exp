@@ -2,6 +2,8 @@
 from __future__ import print_function
 import itertools
 import os, sys, re, json, logging
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
@@ -9,11 +11,11 @@ WORK_DIR = ROOT_DIR + "topic-model/btm/"
 MODELS = []
 for k in [50, 100, 200, 500]:
     # for it in [400, 600, 800]:
-    for it in [400]:
+    for it in [600]:
         for f in ["stop", "none"]:
             MODELS.append("output-all-k%d-f%s-n%d" % (k, f, it))
             MODELS.append("output-all-k%db-f%s-n%d" % (k, f, it))
-MODELS = ["output-all-k50-fstop-n600"]
+MODELS = ["output-all-k500-fstop-n600"]
 ALL_RES = ["PPL", "NPMI", "Umass", "Macro Purity", "Micro Purity", "NMI"]
 
 def get_res(in_pt):
@@ -52,9 +54,8 @@ def get_res(in_pt):
         ax.bar(range(len(pz)), pz, label="pz") 
         ax.plot(range(len(pz)), score, color="purple", marker="o", label="npmi") 
         fig.savefig("npmi.png")
-
     # get topic eval I, II and doc eval
-    # teval1, teval2 = [], []k
+    # teval1, teval2 = [], []
     # deval = []
     # for _ in range(20):
     #     while (not line.startswith("Display Top and Middle")):
