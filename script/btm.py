@@ -132,6 +132,8 @@ class BTM(object):
         print("n(w) = %d" % (self.pw_z.shape[1] - len(self.fwid)))   # 38090
 
     def disp_topic(self, z, pz=0.0):
+        if pz < 1e-6:
+            pz = self.pz[z]
         output = "%.3f" % pz
         output += " : " + " ".join(["%s:%.4f" %
                                     (self.id2w[w], p) for (w, p) in self.top_words[z][:]])
@@ -373,7 +375,7 @@ class BTM(object):
                 wids.append([self.w2id[w] for w in sent.strip().split()
                              if w in self.w2id])
             else:
-                wids.append([int(w) for w in sent.strip().split() if int(w) < self.V])
+                wids.append([int(w) for w in sent.split() if int(w) < self.V])
 
         did_pt = self.model_dir + "tmp_doc.id"
         with open(did_pt, "w") as f:
@@ -480,8 +482,7 @@ class BTM(object):
         print("Display Topics for Doc: %s" % sent.encode("utf8"))
         _sent = " ".join([w for w in sent.split() if w in self.w2id])
         print("Fit doc: %s" % _sent.encode("utf8"))
-        wids = [int(self.w2id[w]) for w in _sent.split()]
-        pz_d = [(i, p) for i, p in enumerate(self.infer_topic_from_wids(wids))]
+        pz_d = [(i, p) for i, p in enumerate(self.quick_infer_topics([_sent], is_raw=True)[0])]
         pz_d = sorted(pz_d, key=lambda t: t[1], reverse=True)
         print("Top-2 Topics:")
         for z, pz in pz_d[:2]:
@@ -494,10 +495,10 @@ class BTM(object):
         """Get evaluation metrics of the model
         """
         # print("Perplexity:", self.get_perplexity(DOC_PT, is_raw=True))
-        print("Topic Coherence")
-        for metric in topic_metric:
-            print("%s" % metric, self.get_topic_coherence(num_top_words=10, cal_type=metric))
-        print("")
+        # print("Topic Coherence")
+        # for metric in topic_metric:
+        #     print("%s" % metric, self.get_topic_coherence(num_top_words=10, cal_type=metric))
+        # print("")
 
         # # get sample topics in order
         # topic_idxs = np.argsort(-self.pz)[get_normal_samples(self.K)]
@@ -505,18 +506,18 @@ class BTM(object):
         # for k in topic_idxs:
         #     topic_dict[k] = []
 
-        # print("Doc Coherence:")
-        # sent_list = []
-        # label_list = []
-        # with open(DOC_PT2) as f:
-        #     for line in f.readlines():
-        #         sent, label = line.decode("utf8").strip().split("\t")
-        #         sent_list.append(sent)
-        #         label_list.append(int(label))
-        # prob_list = self.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
-        # scores = self.get_doc_coherence(prob_list, label_list, cal_type=doc_metric)
-        # for k, v in scores.items():
-        #     print(k, v)
+        print("Doc Coherence:")
+        sent_list = []
+        label_list = []
+        with open(DOC_PT2) as f:
+            for line in f.readlines():
+                sent, label = line.decode("utf8").strip().split("\t")
+                sent_list.append(sent)
+                label_list.append(int(label))
+        prob_list = self.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
+        scores = self.get_doc_coherence(prob_list, label_list, cal_type=doc_metric)
+        for k, v in scores.items():
+            print(k, v)
 
 # util funcs
 def id2word(pt):
@@ -589,9 +590,6 @@ def transform_doc(doc_pt, w2id, mode):
         out_f.write(output + "\n")
     return did_pt
 
-def log(*arg):
-    return print(*arg)
-
 if __name__ == '__main__':
     model_str = "output-all-k50-fstop"
     iteration = 400
@@ -603,19 +601,15 @@ if __name__ == '__main__':
         iteration = int(sys.argv[2])
 
     btm = BTM()
-    for iteration in [800]:
-        for k in [50, 100, 200, 500]:
-            for f in ["stop", "none", "b"]:
-                if f == "b":
-                    k = "%db" % k
-                    f = "none"
-                k = str(k)
-                model_str = "output-all-k%s-f%s" % (k, f)
-                voca_pt = WORK_DIR + model_str + "/vocab.txt"
-                print("Evaluating model: %s %s" % (model_str, iteration))
-                btm.load_model(model_str=model_str, it=iteration)
-                btm.filter_words(FILTER_PT)
-                btm.evaluate_model(topic_metric, doc_metric)
+    print("Evaluating model: %s %s" % (model_str, iteration))
+    btm.load_model(model_str=model_str, it=iteration)
+    btm.filter_words(FILTER_PT)
+    # btm.disp_doc(u"今天 上海 的 天气 不错")
+
+    btm.evaluate_model(topic_metric, doc_metric)
+    # btm.disp_topic(z=44)
+    # btm.disp_topic(z=32)
+    # btm.disp_topic(z=0)
 
     # print("Human Evaluation I:")
     # for k in get_normal_samples(btm.K):

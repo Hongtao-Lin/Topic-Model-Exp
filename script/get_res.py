@@ -2,6 +2,7 @@
 from __future__ import print_function
 import itertools
 import os, sys, re, json, logging
+import matplotlib.pyplot as plt
 
 ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
 WORK_DIR = ROOT_DIR + "topic-model/btm/"
@@ -12,6 +13,7 @@ for k in [50, 100, 200, 500]:
         for f in ["stop", "none"]:
             MODELS.append("output-all-k%d-f%s-n%d" % (k, f, it))
             MODELS.append("output-all-k%db-f%s-n%d" % (k, f, it))
+MODELS = ["output-all-k50-fstop-n600"]
 ALL_RES = ["PPL", "NPMI", "Umass", "Macro Purity", "Micro Purity", "NMI"]
 
 def get_res(in_pt):
@@ -26,10 +28,13 @@ def get_res(in_pt):
     res.append(ppl)
 
     # get topic coherence
+    topic_dist = []
     while (not line.startswith("Topic Coherence")):
         line = f.readline()
     while True:
         line = f.readline()
+        if line.startswith("[[") and topic_dist == []:
+            topic_dist = json.loads(line.strip())
         if not line.strip():
             break
         if len(line.split()) != 2:
@@ -38,6 +43,15 @@ def get_res(in_pt):
         metric = metric.strip()
         score = float(score.strip())
         res.append(score)
+
+    print(topic_dist)
+    if topic_dist != []:
+        pz = [l[1] for l in topic_dist]
+        score = [l[2] for l in topic_dist]
+        fig, ax = plt.subplots()
+        ax.bar(range(len(pz)), pz, label="pz") 
+        ax.plot(range(len(pz)), score, color="purple", marker="o", label="npmi") 
+        fig.savefig("npmi.png")
 
     # get topic eval I, II and doc eval
     # teval1, teval2 = [], []k
@@ -99,7 +113,7 @@ def get_res(in_pt):
             topic_cnt += 1
     new_purity /= topic_cnt
     res.append(new_purity)
-    print(topic_cnt)
+    # print(topic_cnt)
     while True:
         line = f.readline()
         if not line.strip():
@@ -125,5 +139,5 @@ def main():
             print(model)
             res = get_res(in_pt)
     pass
-
+         
 main()

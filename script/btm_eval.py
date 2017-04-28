@@ -302,6 +302,8 @@ class BTM(object):
                     continue
                 biterm = Biterm(self.w2id[wi], self.w2id[wj])
                 biterm_cnt[biterm] = float(cnt)
+                if i % 10000 == 0:
+                    logging.debug(i)
             logging.debug("Load Probs Complete") 
         return word_cnt, biterm_cnt
 
@@ -444,19 +446,35 @@ class BTM(object):
             str: Description
         """
         cluster_pt = "%stmp_cluster.txt" % (self.base_dir)
+        cluster_pt2 = "%stmp_cluster2.txt" % (self.base_dir)
         label_pt = "%stmp_label.txt" % (self.base_dir)
+        label_pt2 = "%stmp_label2.txt" % (self.base_dir)
+        cluster_cnt = {}
+        exclude_idx = []
         with open(cluster_pt, "w") as f:
-            cluster_idx = np.argmax(prob_list, axis=1)
-            for i, idx in enumerate(cluster_idx):
-                f.write("%d\t%d\n" % (i, idx))
+            with open(cluster_pt2, "w") as f2:
+                cluster_idx = np.argmax(prob_list, axis=1)
+                for i, idx in enumerate(cluster_idx):
+                    cluster_cnt[idx] = cluster_cnt.get(idx, 0) + 1
+                for i, idx in enumerate(cluster_idx):
+                    f.write("%d\t%d\n" % (i, idx))
+                    if cluster_cnt[idx] < 10:
+                        exclude_idx.append(i)
+                        continue
+                    f2.write("%d\t%d\n" % (i, idx))
         with open(label_pt, "w") as f:
-            for i, idx in enumerate(label_list):
-                f.write("%d\t%d\n" % (i, idx))
+            with open(label_pt2, "w") as f2:
+                for i, idx in enumerate(label_list):
+                    f.write("%d\t%d\n" % (i, idx))
+                    if i in exclude_idx:
+                        continue
+                    f2.write("%d\t%d\n" % (i, idx))
+        print("Filter out #cluster: ",sum(1 for k, v in cluster_cnt.items() if v < 10))
         cmd = ["python", "cluster_eval.py"] + ["-%s" % cal for cal in cal_type] + \
               [label_pt, cluster_pt]
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         result = process.stdout.read()
-        logging.debug(result)
+        # logging.debug(result)
         scores = {}
         for cal in cal_type:
             if cal == "purity":
@@ -474,6 +492,30 @@ class BTM(object):
                     print(z, self.pz[int(z)], score, cluster_size)
             else:
                 scores[cal] = float(re.search(r"%s = (.*)\n" % cal, result).group(1))
+
+        cmd = ["python", "cluster_eval.py"] + ["-%s" % cal for cal in cal_type] + \
+              [label_pt2, cluster_pt2]
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        result = process.stdout.read()
+        # logging.debug(result)
+        # scores = {}
+        for cal in cal_type:
+            if cal == "purity":
+                score1 = float(re.search(r"macro purity = (.*)\n", result).group(1))
+                score2 = float(re.search(r"micro purity = (.*)\n", result).group(1))
+                scores.update({"macro-purity-2": score1, "micro-purity-2": score2})
+                # get detailed score by topic descending order
+                i = 0
+                while not result.split("\n")[i].startswith("detailed purity stat"):
+                    i += 1
+                for k in range(i + 1, i + 1 + self.K):
+                    if len(result.split("\n")[k].split()) != 3:
+                        break
+                    z, score, cluster_size = result.split("\n")[k].split()
+                    # print(z, self.pz[int(z)], score, cluster_size)
+            else:
+                scores[cal+"-2"] = float(re.search(r"%s = (.*)\n" % cal, result).group(1))
+        
         return scores
 
     def disp_doc(self, sent):
@@ -493,30 +535,30 @@ class BTM(object):
     def evaluate_model(self, topic_metric, doc_metric):
         """Get evaluation metrics of the model
         """
-        # print("Perplexity:", self.get_perplexity(DOC_PT, is_raw=True))
+        print("Perplexity:", self.get_perplexity(DOC_PT, is_raw=True))
         print("Topic Coherence")
         for metric in topic_metric:
             print("%s" % metric, self.get_topic_coherence(num_top_words=10, cal_type=metric))
         print("")
 
-        # # get sample topics in order
-        # topic_idxs = np.argsort(-self.pz)[get_normal_samples(self.K)]
-        # topic_dict = {}
-        # for k in topic_idxs:
-        #     topic_dict[k] = []
+        # get sample topics in order
+        topic_idxs = np.argsort(-self.pz)[get_normal_samples(self.K)]
+        topic_dict = {}
+        for k in topic_idxs:
+            topic_dict[k] = []
 
-        # print("Doc Coherence:")
-        # sent_list = []
-        # label_list = []
-        # with open(DOC_PT2) as f:
-        #     for line in f.readlines():
-        #         sent, label = line.decode("utf8").strip().split("\t")
-        #         sent_list.append(sent)
-        #         label_list.append(int(label))
-        # prob_list = self.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
-        # scores = self.get_doc_coherence(prob_list, label_list, cal_type=doc_metric)
-        # for k, v in scores.items():
-        #     print(k, v)
+        print("Doc Coherence:")
+        sent_list = []
+        label_list = []
+        with open(DOC_PT2) as f:
+            for line in f.readlines():
+                sent, label = line.decode("utf8").strip().split("\t")
+                sent_list.append(sent)
+                label_list.append(int(label))
+        prob_list = self.quick_infer_topics(sent_list, is_raw=True, infer_type="prob")
+        scores = self.get_doc_coherence(prob_list, label_list, cal_type=doc_metric)
+        for k, v in scores.items():
+            print(k, v)
 
 # util funcs
 def id2word(pt):
@@ -603,15 +645,21 @@ if __name__ == '__main__':
         iteration = int(sys.argv[2])
 
     btm = BTM()
-    for iteration in [800]:
+    for iteration in [600, 800]:
         for k in [50, 100, 200, 500]:
             for f in ["stop", "none", "b"]:
+            # for f in ["b"]:
+                if iteration == 600:
+                    if not ((k == 500 and f == "none")):
+                        continue
                 if f == "b":
-                    k = "%db" % k
+                    k = "%sb" % k
                     f = "none"
                 k = str(k)
                 model_str = "output-all-k%s-f%s" % (k, f)
                 voca_pt = WORK_DIR + model_str + "/vocab.txt"
+                if not os.path.exists(voca_pt):
+                    continue
                 print("Evaluating model: %s %s" % (model_str, iteration))
                 btm.load_model(model_str=model_str, it=iteration)
                 btm.filter_words(FILTER_PT)
