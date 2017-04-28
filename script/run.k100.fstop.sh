@@ -3,7 +3,7 @@
 
 #dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
 
-root="/lustre/home/acct-csyk/csyk/users/"
+root="/slfs1/users/htl11/users/"
 cd /lustre/home/acct-csyk/csyk/users/htl11/topic-model/btm/script/
 
 K=100   # number of topics
