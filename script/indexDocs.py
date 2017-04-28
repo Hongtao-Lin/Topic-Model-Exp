@@ -6,7 +6,8 @@ import sys
 import os
 import json
 
-res_dir = '/lustre/home/acct-csyk/csyk/users/htl11/res/'
+root = '/slfs1/users/htl11/'
+res_dir = root + 'res/'
 stopword_f = res_dir + 'zh-stopwords.json'
 
 freq_thes = 5
