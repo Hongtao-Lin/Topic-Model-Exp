@@ -3,7 +3,7 @@
 # Usage: evaluate topic model: python btm.py [model_name] [iter]
 #   if the two arguments are not defined, use the default model instead.
 from __future__ import print_function
-import sys, os, math, time, random, logging, json, copy, re
+import sys, os, math, time, random, logging, json, copy, re, string
 import numpy as np
 from collections import OrderedDict, namedtuple
 import subprocess
@@ -18,8 +18,8 @@ ROOT_DIR = "/slfs1/users/htl11/"
 WORK_DIR = ROOT_DIR + "topic-model/btm/"
 # MODEL_STR = "output-cmnt-k40-fstop"
 SRC_NAME = "src/btm"
-FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做").split()
-
+FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做 想 说 觉得 看 不要 [ ]").split()
+STC_FILTER = string.letters + string.punctuation
 
 DOC_PT = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
 DOC_PT2 = "%s/data/10-news-group/test_clf.full.txt" % ROOT_DIR
@@ -88,6 +88,35 @@ class BTM(object):
         self.pz, self.pw_z = np.array(pz), np.array(pw_z)
 
         self.top_words = self.get_topic_words_from_range(num_words=NUM_TOP_WORDS)
+
+    def get_topic_word_stats(self):
+        pwz = self.pw_z * self.pz.reshape(-1, 1)
+        pz_w = (pwz / np.sum(pwz, axis=0)).T
+        entropy = np.exp(-np.sum((pz_w * np.log(pz_w)), axis=1))
+
+        topic_probs = self.pw_z / entropy
+        print(topic_probs.shape)
+
+        top_words = []
+        for pw_z in topic_probs:
+            # print(pw_z.shape)
+            topic_prob = [(i, p) for i, p in enumerate(pw_z) if (i not in self.fwid and self.id2w[i][0] not in STC_FILTER)]
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[:100]
+            top_words.append(topic_prob)
+        self.top_words = np.array(top_words)
+
+        o = open(self.model_dir + "k200.pz_w", "w")
+        for p in pz_w:
+            o.write(" ".join([str(pi) for pi in p]) + "\n")
+        o.close()
+
+        o = open(self.model_dir + "k200.top_words", "w")
+        for words in top_words:
+            output = " ".join([self.id2w[w[0]] for w in words])
+            o.write(output.encode("utf8") + "\n")
+        o.close()
+
+        return np.array(top_words)
 
     def get_topic_words_from_range(self, start=0, num_words=20, z=None):
         """sort topic word by their probability in descending order,
@@ -325,7 +354,7 @@ class BTM(object):
         ppl = math.exp(-total_prob)
         return ppl
 
-    def quick_infer_topics_from_file(self, doc_pt, is_raw=False,
+    def quick_infer_topics_from_file(self, doc_pt, out_file="", is_raw=False,
                                      cal_type="sum_b", infer_type="prob", suffix="pz_d"):
         """infer topics of new documents given topic model using the origianl C++ executable
 
@@ -352,7 +381,6 @@ class BTM(object):
             did_pt = doc_pt
         suffix = ".%s.%s" % (filename, suffix)
         zd_pt = self.model_dir + "k%d%s" % (self.K, suffix)
-
         cmd = ["%s%s" % (WORK_DIR, SRC_NAME), "inf", "sum_b",
                str(self.K), did_pt, self.model_dir, suffix, infer_type, str(self.it)]
         logging.debug("Running Command: " + " ".join(cmd))
@@ -362,6 +390,8 @@ class BTM(object):
         logging.debug("Time Spend: %.3f" % (time.time() - t1))
         # print(returncode)
         logging.debug(process.stdout.read())
+        if out_file != "":
+            os.system("cp %s %s" % (zd_pt, out_file))
         return did_pt, zd_pt
 
     def quick_infer_topics(self, sent_list, is_raw=False, cal_type="sum_b", infer_type="prob"):
@@ -560,8 +590,8 @@ def transform_doc(doc_pt, w2id, mode):
     return did_pt
 
 if __name__ == '__main__':
-    model_str = "output-all-k50-fstop"
-    iteration = 400
+    model_str = "output-all-k200-fstop"
+    iteration = 800
     topic_metric = ["npmi", "umass"]
     doc_metric = ["purity", "nmi"]
 
@@ -573,13 +603,18 @@ if __name__ == '__main__':
     print("Evaluating model: %s %s" % (model_str, iteration))
     btm.load_model(model_str=model_str, it=iteration)
     btm.filter_words(FILTER_PT)
-    # btm.disp_doc(u"今天 上海 的 天气 不错")
+    # btm.disp_doc(u"哈 哈")
 
-    btm.evaluate_model(topic_metric, doc_metric)
-    # btm.disp_topic(z=44)
-    # btm.disp_topic(z=32)
-    # btm.disp_topic(z=0)
+    # btm.evaluate_model(topic_metric, doc_metric)
+    btm.disp_topic(z=93)
+
+    btm.get_topic_word_stats()
+    btm.disp_topic(z=93)
+
     # print("Test ppl:", btm._get_perplexity(u"除了 李承鹏 的 书 之外 , 都 是 好 书 。"))
+
+    # btm.quick_infer_topics_from_file(ROOT_DIR + "data/stc-data/train.txt", is_raw=True)
+    # btm.quick_infer_topics_from_file(ROOT_DIR + "data/stc-data/valid.txt", is_raw=True)
 
     # Manually look at topic models:
     # print("Human Evaluation I:")
