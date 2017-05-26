@@ -89,13 +89,34 @@ def get_res(in_pt):
     return res
 
 
+def analyze_top_words(in_pt, data_pt, post_pt, cmnt_pt):
+    words = set()
+    word_list = []
+    with open(in_pt) as f:
+        for line in f.xreadlines():
+            top_words = line.decode("utf8").strip().split()
+            assert len(top_words) == 200
+            words.update(top_words)
+            word_list.append(top_words)
+    with open(data_pt) as fd, open(post_pt) as fp, open(cmnt_pt) as fc:
+        for ld in fd.xreadlines():
+            lp, lc = fp.readline(), fc.readline()
+            
+    print(len(words))
+
+
 def main():
-    print(ALL_RES)
-    for model in MODELS:
-        in_pt = WORK_DIR + "log/eval/" + model + ".out"
-        if os.path.exists(in_pt) and os.path.getsize(in_pt) > 1024:
-            print(model)
-            res = get_res(in_pt)
+    # print(ALL_RES)
+    # for model in MODELS:
+    #     in_pt = WORK_DIR + "log/eval/" + model + ".out"
+    #     if os.path.exists(in_pt) and os.path.getsize(in_pt) > 1024:
+    #         print(model)
+    #         res = get_res(in_pt)
+    data_pt = ROOT_DIR + "data/stc-kw-data/train.txt"
+    post_pt = ROOT_DIR + "data/stc-kw-data/train-btm.post.txt"
+    cmnt_pt = ROOT_DIR + "data/stc-kw-data/train-btm.cmnt.txt"
+    analyze_top_words(WORK_DIR + "output-all-k200-fstop/model/k200.top_words", data_pt, post_pt, cmnt_pt)
+    analyze_top_words(WORK_DIR + "output-all-k200-fstop/model/k200.general.top_words", data_pt, post_pt, cmnt_pt)
     pass
          
 main()

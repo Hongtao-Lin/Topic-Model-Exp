@@ -7,9 +7,11 @@ import sys, os, math, time, random, logging, json, copy, re, string
 import numpy as np
 from collections import OrderedDict, namedtuple
 import subprocess
+root_dir = "/slfs1/users/htl11/"
 
+data_dir = root_dir + "data/stc-data/"
 
-NUM_TOP_WORDS = 50
+NUM_TOP_WORDS = 1200
 # FILTER_PATH = '../filter_words.txt' # relative to model directory.
 # SUFFIX = ".test.pz_d"
 # ROOT_DIR = "/lustre/home/acct-csyk/csyk/users/htl11/"
@@ -19,7 +21,7 @@ WORK_DIR = ROOT_DIR + "topic-model/btm/"
 # MODEL_STR = "output-cmnt-k40-fstop"
 SRC_NAME = "src/btm"
 FILTER_WORDS = (u"不 人 好 小 大 会 才 都 再 还 去 点 太 一个 没 真 上 下 做 想 说 觉得 看 不要 [ ]").split()
-STC_FILTER = string.letters + string.punctuation
+STC_FILTER = string.letters + string.punctuation + string.digits
 
 DOC_PT = "%s/data/stc-data/valid-btm.txt" % ROOT_DIR
 DOC_PT2 = "%s/data/10-news-group/test_clf.full.txt" % ROOT_DIR
@@ -29,7 +31,7 @@ WORD_SW_PT = "%s/data/zhwiki/count_unigram_sw.txt" % ROOT_DIR
 BITERM_SW_PT = "%s/data/zhwiki/count_bigram_sw.txt" % ROOT_DIR
 FILTER_PT = "%s/res/zh-stopwords.json" % ROOT_DIR
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 class Biterm(namedtuple("Biterm", "wi wj")):
     __slots__ = ()
@@ -43,6 +45,15 @@ class Biterm(namedtuple("Biterm", "wi wj")):
     @property
     def __str__(self):
         return "Biterm: wi=%d, wj=%d" % (self.wi, self.wj)
+
+def is_valid_pos(word):
+    from pyltp import Postagger
+    postagger = Postagger()
+    postagger.load("/slfs1/users/xl526/stc-data/ltp_data/pos.model")
+    pos = postagger.postag([word.encode("utf8")])
+    postag = list(pos)[0]
+    # print(postag)
+    return postag in "a b i j n nh ni nl ns nz v".split()
 
 
 class BTM(object):
@@ -94,14 +105,21 @@ class BTM(object):
         pz_w = (pwz / np.sum(pwz, axis=0)).T
         entropy = np.exp(-np.sum((pz_w * np.log(pz_w)), axis=1))
 
+        print(pz_w[self.w2id[u"吃"]])
         topic_probs = self.pw_z / entropy
         print(topic_probs.shape)
+
+        o = open(self.model_dir + "k200.general.top_words", "w")
+        for words in self.top_words:
+            output = " ".join([self.id2w[w[0]] for w in words])
+            o.write(output.encode("utf8") + "\n")
+        o.close()
 
         top_words = []
         for pw_z in topic_probs:
             # print(pw_z.shape)
-            topic_prob = [(i, p) for i, p in enumerate(pw_z) if (i not in self.fwid and self.id2w[i][0] not in STC_FILTER)]
-            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[:100]
+            topic_prob = [(i, p) for i, p in enumerate(pw_z) if self.is_valid_keyword(i)]
+            topic_prob = sorted(topic_prob, key=lambda t: t[1], reverse=True)[:NUM_TOP_WORDS]
             top_words.append(topic_prob)
         self.top_words = np.array(top_words)
 
@@ -117,6 +135,10 @@ class BTM(object):
         o.close()
 
         return np.array(top_words)
+
+    def is_valid_keyword(self, i):
+        w = self.id2w[i]
+        return (i not in self.fwid and w[0] not in STC_FILTER and is_valid_pos(w))
 
     def get_topic_words_from_range(self, start=0, num_words=20, z=None):
         """sort topic word by their probability in descending order,
