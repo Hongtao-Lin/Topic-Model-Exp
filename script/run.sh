@@ -10,7 +10,7 @@ K=1000   # number of topics
 alpha=`echo "scale=3;50/$K"|bc`
 beta=0.001
 niter=700
-save_step=20
+save_step=100
 has_b=0
 fstop=1
 
@@ -18,6 +18,12 @@ input_dir=$root/data/stc-data/
 output_dir=../output-all-k1000-fstop/
 model_dir=${output_dir}model/
 
+if [ $fstop -eq 0 ] 
+then
+    model_str=output-all-k${K}-fnone
+else
+    model_str=output-all-k${K}-fstop
+fi
 
 mkdir ${output_dir}
 mkdir -p ${output_dir}model 
@@ -51,4 +57,4 @@ echo "../src/btm inf sum_b $K $dwid_pt $model_dir"
 
 ## output top word of each topic
 echo "================ Topic Display ============="
-python topicAna.py $model_dir $K $voca_pt
+python btm.py $model_str $save_step

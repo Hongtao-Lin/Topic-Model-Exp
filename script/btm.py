@@ -9,12 +9,6 @@ import numpy as np
 import subprocess
 import config
 
-# FILTER_PATH = '../filter_words.txt' # relative to model directory.
-# SUFFIX = ".test.pz_d"
-# MODEL_STR = "output-cmnt-k50-fstop"
-# MODEL_STR = "output-cmnt-k40-fstop"
-SRC_NAME = "src/btm"
-
 debug = config.debug
 if debug:
     logging.basicConfig(level=logging.DEBUG)
@@ -173,6 +167,8 @@ class BTM(object):
         if pz < 1e-6:
             pz = self.pz[z]
         if reranked:
+            if not len(self.reranked_top_words):
+                raise ValueError("The reranked top words are not calculated!")
             wids = self.reranked_top_words[z][:, 0]
         elif wids is None:
             wids = self.top_words[z][:, 0]
@@ -264,7 +260,7 @@ class BTM(object):
             did_pt = doc_pt
         suffix = ".%s.%s" % (filename, suffix)
         zd_pt = self.model_dir + "k%d%s" % (self.K, suffix)
-        cmd = ["%s%s" % (config.btm_dir, SRC_NAME), "inf", "sum_b",
+        cmd = ["%s%s" % (config.btm_dir, "src/btm"), "inf", "sum_b",
                str(self.K), did_pt, self.model_dir, suffix, infer_type, str(self.it)]
         logging.debug("Running Command: " + " ".join(cmd))
         t1 = time.time()
@@ -609,15 +605,14 @@ if __name__ == '__main__':
     btm = BTM()
     print("Evaluating model: %s %s" % (model_str, iteration))
     btm.load_model(model_str=model_str, it=iteration, filter_pt=config.sw_file)
-    # btm.filter_words(config.sw_file)
-    # btm.disp_doc(u"哈 哈")
 
-    # btm.evaluate_model(topic_metric, doc_metric)
-    btm.disp_topic(z=93)
+    # test topic clustering
+    btm.disp_all_topics(end=2)
     btm.get_reranked_top_words()
-    btm.disp_topic(z=93)
+    btm.disp_all_topics(end=2, reranked=True)
 
-    # print("Test ppl:", btm._get_sent_perplexity(u"除了 李承鹏 的 书 之外 , 都 是 好 书 。"))
+    # test doc inference
+    btm.disp_doc(u"我 爱 你 中国")
+    btm.disp_doc(u"我 爱 你 中国", infer_type="max_idx")
 
-    # btm.quick_infer_topics_from_file(config.root_dir + "data/stc-data/train.txt", is_raw=True)
     pass
