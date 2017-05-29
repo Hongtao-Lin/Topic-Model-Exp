@@ -1,0 +1,2 @@
+*.pz* filter=lfs diff=lfs merge=lfs -text
+*.pw_z* filter=lfs diff=lfs merge=lfs -text

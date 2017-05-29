@@ -1,4 +1,7 @@
 output*/
+!output-all-k200-fstop/
+*.pz_d
+*.tmp*
 script/core*
 *.pyc
 log/*
@@ -8,3 +11,4 @@ submit*.sh
 .run*.sh
 *.swp
 *.out
+.*

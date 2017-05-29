@@ -32,7 +32,7 @@ dwid_pt=${output_dir}doc_wids.txt
 voca_pt=${output_dir}vocab.txt
 # filtered words goes to here
 filter_pt=${output_dir}filter_words.txt
-python indexDocs.py $doc_pt $dwid_pt $voca_pt $fstop $filter_pt
+python indexDocs.py $doc_pt $dwid_pt $voca_pt $fstop
 
 ## learning parameters p(z) and p(w|z)
 echo "=============== Topic Learning ============="

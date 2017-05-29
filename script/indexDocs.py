@@ -1,20 +1,15 @@
 #!/usr/bin/env python
+"""Building vocabs and preprocess the training file
+
+Attributes:
+    debug (str): Description
+"""
 # coding=utf-8
-# translate word into id in documents
 # from __future__ import print_function
-import sys
-import os
-import json
+import sys, os, json
+import config
 
-root = '/slfs1/users/htl11/'
-res_dir = root + 'res/'
-stopword_f = res_dir + 'zh-stopwords.json'
-
-freq_thes = 5
-most_freq_thes = 100
-text_mode = 0
-# mode 0: post + comment, 1: post, 2: comment
-debug = False
+debug = config.debug
 
 
 def load_vocab(pt):
@@ -32,8 +27,15 @@ def save_vocab(w2id, voca_pt):
     for w, wid in sorted(w2id.items(), key=lambda d: d[1]):
         print >>wf, '%d\t%s' % (wid, w.encode("utf8"))
 
-def read_line(l, text_mode):
-    # especially for stc-data format
+def read_line(l, text_mode = 0):
+    """Read sentences from a single line, the format below is especially for stc data like:
+    post => cmnt1 => cmnt2 ...
+    
+    Args:
+        text_mode (int, optional): range from 0, 1, 2
+            if 0, post and cmnt are all selected
+            if 1, only post, if 2, only cmnts
+    """
     if text_mode == 0:
         return l.split("=>")
     elif text_mode == 1:
@@ -41,11 +43,21 @@ def read_line(l, text_mode):
     else:
         return l.split("=>")[1:]
 
-def build_vocab(pt, text_mode, filter_stop=False, filter_pt=""):
+def build_vocab(pt, text_mode = 0, filter_stop=False, filter_pt=""):
+    """Build vocab from data source
+    
+    Args:
+        text_mode (int, optional): range from 0, 1, 2
+            if 0, post and cmnt are all selected
+            if 1, only post, if 2, only cmnts
+        filter_stop (bool, optional): whether to filter stopwords
+        filter_pt (str, optional): filter additional words besides stopwords
+    """
     print "index file: %s" % pt
+    freq_thes = 5
     w2cnt = {}
     w2id = {}
-    stopwords = json.loads(open(stopword_f).read().decode("utf8"))
+    stopwords = json.loads(open(config.sw_file).read().decode("utf8"))
     stopword_cnt = {}
 
     for s in stopwords:
@@ -107,7 +119,7 @@ def filter_doc(doc_pt, w2id, text_mode):
         # print >>f_pt, "=>".join(new_sent_list)
 
 
-def write_doc2id(doc_pt, dwid_pt, voca_pt, text_mode, debug=False):
+def write_doc2id(doc_pt, dwid_pt, voca_pt, text_mode = 0)
     if os.path.isfile(dwid_pt):
         return
 
@@ -143,6 +155,7 @@ if __name__ == '__main__':
         print '\tfstop   bool, whether to filter out stopwords'
         exit(1)
 
+    text_mode = 0
     doc_pt = sys.argv[1]
     dwid_pt = sys.argv[2]
     voca_pt = sys.argv[3]
