@@ -17,19 +17,14 @@ More detail can be referred to the following paper:
 The code has been test on linux. If you on windows, please install
 cygwin (with bc, wc, make).
 
-The code includes a runnable example, you can run it by:
+To run the code, first config your own data and resources path in `scripts/config.py`. The format of your training data can be arbitary, note that you should modify the corresponding preporcessing step in `scripts/indexDocs.py`.
+
+Then you can run it by:
 
        $ cd script
-	   $ sh runExample.sh
+	   $ sh run.sh
 
-It trains BTM over the documents in *sample-data/doc\_info.txt* and output the topics. The doc\_info.txt contains all the training documents, where each line represents one document with words separated by space as:
-> word1 word2 word3 ....
-
-(*Note: the sample data is only used for illustration of the usage of the code. It is not the data set used in the paper.*)
-
-You can change the paths of data files and parameters in *script/runExample.sh* to run over your own data. 
-
-Indeed, the *runExample.sh* processes the input documents in 4 steps.
+Indeed, the *run.sh* processes the input documents in 4 steps.
 
 **1. Index the words in the documents**   
    To simplify the main code, we provide a python script to map each word to a unique ID (starts from 0) in the documents. 
@@ -37,51 +32,53 @@ Indeed, the *runExample.sh* processes the input documents in 4 steps.
     $ python script/indexDocs.py <doc_pt> <dwid_pt> <voca_pt>
     	doc_pt    input docs to be indexed, each line is a doc with the format "word word ..."
     	dwid_pt   output docs after indexing, each line is a doc with the format "wordId wordId ..."
-    	voca_pt   output vocabulary file, each line is a word with the format "wordId     word"
+      voca_pt   output vocabulary file, each line is a word with the format "wordId     word"
+    	fstop  1 if to filter stopwords
 
 **2. Topic learning**  
    The next step is to train the model using the documents represented by word ids.    
 
-    $ ./src/btm est <K> <W> <alpha> <beta> <n_iter> <save_step> <docs_pt> <model_dir> 
-      K	int, number of topics
+    $ ./src/btm est <K> <W> <P> <alpha> <beta> <n_iter> <save_step> <docs_pt> <model_dir> <has_b> 
+      K int, number of topics
+      P	int, number of threads to run in multi-threaded program (Almost linear speed up)
       W	int, size of vocabulary
       alpha	double, Symmetric Dirichlet prior of P(z), like 1
       beta	double, Symmetric Dirichlet prior of P(w|z), like 0.01
       n_iter	int, number of iterations of Gibbs sampling
       save_step	int, steps to save the results
       docs_pt	string, path of training docs
-      model_dir	string, output directory
+      model_dir string, output directory
+      has_b	whether to include a background topic
  
+
    The results will be written into the directory "model\_dir":   
-   - k20.pw_z: a K*M matrix for P(w|z), suppose K=20   
-   - k20.pz:   a K*1 matrix for P(z), suppose K=20
+   - k20.bs: a B vector as the intermediate result for Gibbs sampling, suppose K=20   
+   - k20.pw_z.<iter>: a K*M matrix for P(w|z), suppose K=20. Note that the file is created every saved step
+   - k20.pz.<iter>:   a K*1 matrix for P(z), suppose K=20. Note that the file is created every saved step
+
+   Note that our model can support incremental training by storing the bs file.
+
 
 **3. Inference topic proportions for documents, i.e., P(z|d)**     
    If you need to analysis the topic proportions of each documents, just run the following common to infer that using the model estimated.
 
-    $ ./src/btm inf <type> <K> <docs_pt> <model_dir>
+    $ ./src/btm inf <type> <K> <docs_pt> <model_dir> <suffix> <infer_type>
       K	int, number of topics, like 20
       type	 string, 4 choices:sum_w, sum_b, lda, mix. sum_b is used in our  paper.
       docs_pt	string, path of docs to be inferred
       model_dir	string, output directory
+      suffix  the suffix for the output file
+      infer_type  whether `prob` to get the whole distribution, or `max_idx` to get a single topic idx
 
    The result will be output to "model_dir":   
-   - k20.pz_d: a N*K matrix for P(z|d), suppose K=20
+   - k20.<suffix>: a N*K matrix for P(z|d), suppose K=20
   
 **4. Results display**    
    Finally, we also provide a python script to illustrate the top words of the topics and their proportions in the collection. 
 
-    $ python script/topicDisplay.py <model_dir> <K> <voca_pt>
-      model_dirthe output dir of BTM
-      Kthe number of topics
-      voca_ptthe vocabulary file
+    $ python script/btm.py <model_dir> <iter>
+      model_dir   the output dir of BTM
+      iter   the number of iteration
 
-## Related codes ##
-- [Online BTM](https://github.com/xiaohuiyan/OnlineBTM)
-- [Bursty BTM](https://github.com/xiaohuiyan/BurstyBTM)
+    The script `btm.py` includes a number of different evaluation methods for topic display and document display. Also, the automatic metric calculation is done. For some other examples, see `testcase.py`.
 
-## History ##
-- 2015-01-12, v0.5, improve the usability of the code
-- 2012-09-25, v0.1
-
-If there is any question, feel free to contact: [Xiaohui Yan](http://shortext.org "Xiaohui Yan")(xhcloud@gmail.com).
