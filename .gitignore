@@ -2,6 +2,8 @@ output*/
 !output-all-k200-fstop/
 *.pz_d
 *.tmp*
+*.pz*
+*.pw_z*
 script/core*
 *.pyc
 log/*
