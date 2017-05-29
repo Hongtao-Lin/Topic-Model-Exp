@@ -1,2 +1,5 @@
 *.pz* filter=lfs diff=lfs merge=lfs -text
 *.pw_z* filter=lfs diff=lfs merge=lfs -text
+*.pz.800 filter=lfs diff=lfs merge=lfs -text
+*.pw_z.800 filter=lfs diff=lfs merge=lfs -text
+output-all-k200-fstop/* filter=lfs diff=lfs merge=lfs -text
